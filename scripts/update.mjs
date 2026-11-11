@@ -13,6 +13,11 @@ const REVIEW_LIMIT = Number(process.env.REVIEW_LIMIT ?? 300); // 하루에 리�
 const REVIEW_MAX_AGE = 14; // 일
 const API = 'https://api.steampowered.com';
 const CONTEXT = { language: 'koreana', country_code: 'KR' };
+// 추가 언어: 이름·소개·태그는 그 언어로, 가격은 그 지역 상점 기준
+const LOCALES = {
+  en: { language: 'english', country_code: 'US' },
+  zh: { language: 'schinese', country_code: 'CN' },
+};
 const ASSET_BASE = 'https://shared.akamai.steamstatic.com/store_item_assets/';
 const HISTORY_DAYS = 15;
 const MIN_REVIEWS = 50;
@@ -105,23 +110,25 @@ async function specialsIds(pages = 6) {
 }
 
 // ---------- 2. 상세 정보 ----------
-async function fetchItems(appids) {
+async function fetchItems(appids, context = CONTEXT, light = false) {
   const chunks = [];
   for (let i = 0; i < appids.length; i += 150) chunks.push(appids.slice(i, i + 150));
   const res = await pool(chunks, 3, async (chunk) => {
     const j = await getJSON(
       svc('IStoreBrowseService', 'GetItems', {
         ids: chunk.map((appid) => ({ appid })),
-        context: CONTEXT,
-        data_request: {
-          include_tag_count: 8,
-          include_basic_info: true,
-          include_supported_languages: true,
-          include_platforms: true,
-          include_reviews: true,
-          include_release: true,
-          include_assets: true,
-        },
+        context,
+        data_request: light
+          ? { include_basic_info: true } // 다른 언어는 이름·가격·소개만 필요
+          : {
+              include_tag_count: 8,
+              include_basic_info: true,
+              include_supported_languages: true,
+              include_platforms: true,
+              include_reviews: true,
+              include_release: true,
+              include_assets: true,
+            },
       }),
     );
     return j?.response?.store_items ?? [];
@@ -136,6 +143,27 @@ async function fetchCcu(appid) {
   } catch {
     return null;
   }
+}
+
+// 언어별 지원 수준: 0 없음, 1 자막·인터페이스, 2 음성 포함
+const ELANG = { ko: 4, en: 0, zh: 6 };
+function langLevels(it) {
+  const out = {};
+  for (const [k, e] of Object.entries(ELANG)) {
+    const l = (it.supported_languages ?? []).find((x) => x.elanguage === e && x.supported);
+    out[k] = l ? (l.full_audio ? 2 : 1) : 0;
+  }
+  return out;
+}
+
+// 그 지역 상점의 가격: [현재가, 정가, 할인율, 할인 종료] / 판매하지 않으면 null
+function priceOf(it) {
+  const bp = it?.best_purchase_option;
+  if (!bp) return null;
+  const pr = Number(bp.final_price_in_cents) / 100;
+  const d = bp.discount_pct ?? 0;
+  if (!d) return [pr];
+  return [pr, bp.original_price_in_cents ? Number(bp.original_price_in_cents) / 100 : 0, d, bp.active_discounts?.[0]?.discount_end_date ?? 0];
 }
 
 // ---------- 3. 점수 ----------
@@ -266,7 +294,8 @@ async function main() {
       tr: Math.round(trend * 10) / 10,
     };
     if (it.is_free) g.f = 1;
-    if ((it.supported_languages ?? []).some((l) => l.elanguage === 4 && l.supported)) g.ko = 1;
+    const lg = langLevels(it); // 지원 언어 비트: 1 한국어, 2 영어, 4 중국어(간체)
+    g.lg = (lg.ko ? 1 : 0) | (lg.en ? 2 : 0) | (lg.zh ? 4 : 0);
     if (disc) Object.assign(g, { d: disc, op: orig, de: discEnd });
     if (g1 != null) g.g1 = Math.round((ccu / Math.max(p1, 1) - 1) * 100);
     if (g7 != null) g.g7 = Math.round((ccu / Math.max(p7, 1) - 1) * 100);
@@ -288,7 +317,16 @@ async function main() {
   for (const g of games) for (const t of g.t) counts[t] = (counts[t] ?? 0) + 1;
   const categories = CATEGORY_TAGS.filter((t) => tags[t] && counts[t] >= 15);
 
-  console.log('5/6 상세 정보·리뷰…');
+  console.log('5/6 다국어·상세 정보·리뷰…');
+  const ids = games.map((g) => g.id);
+  const locItems = {};
+  const locTags = {};
+  for (const [k, ctx] of Object.entries(LOCALES)) {
+    locItems[k] = new Map((await fetchItems(ids, ctx, true)).map((it) => [it.appid, it]));
+    const tl = await getJSON(`${API}/IStoreService/GetTagList/v1/?language=${ctx.language}`);
+    locTags[k] = Object.fromEntries((tl?.response?.tags ?? []).filter((t) => used.has(t.tagid)).map((t) => [t.tagid, t.name]));
+  }
+
   await mkdir(DETAIL_DIR, { recursive: true });
   const byId = new Map(items.map((it) => [it.appid, it]));
   const details = await pool(games, 16, async (g) => {
@@ -296,34 +334,56 @@ async function main() {
     const file = join(DETAIL_DIR, `${g.id}.json`);
     let old = null;
     try { old = JSON.parse(await readFile(file, 'utf8')); } catch {}
-    const ko = (it.supported_languages ?? []).find((l) => l.elanguage === 4 && l.supported);
+    const ctrlIds = it.categories?.controller_categoryids ?? [];
     const d = {
-      d: it.basic_info?.short_description ?? '',
       dev: (it.basic_info?.developers ?? []).map((x) => x.name).slice(0, 2).join(', '),
       m: playModes(it.categories?.supported_player_categoryids),
-      ctrl: (it.categories?.controller_categoryids ?? []).includes(28) ? 2 : (it.categories?.controller_categoryids ?? []).includes(18) ? 1 : 0,
+      ctrl: ctrlIds.includes(28) ? 2 : ctrlIds.includes(18) ? 1 : 0,
       deck: it.platforms?.steam_deck_compat_category ?? 0,
-      ko: ko ? (ko.full_audio ? 2 : 1) : 0,
+      lg: langLevels(it),
+      d: { ko: it.basic_info?.short_description ?? '' },
+      r: {},
     };
-    if (old?.r) d.r = old.r;
+    for (const k of Object.keys(LOCALES)) d.d[k] = locItems[k].get(g.id)?.basic_info?.short_description ?? '';
+    // 이전 파일의 리뷰는 그대로 이어 쓴다 (예전 형식: r 이 한국어 리뷰 하나)
+    if (old?.r) d.r = 'at' in old.r ? { ko: old.r } : old.r;
     return { g, file, d, before: old ? JSON.stringify(old) : '' };
   });
-  // 리뷰가 없거나 오래된 게임부터, 점수 높은 순으로 하루 REVIEW_LIMIT개만 새로 받는다
+
+  // 언어마다 리뷰가 없거나 오래된 게임부터, 점수 높은 순으로 하루 REVIEW_LIMIT개씩 새로 받는다
   const cutoff = kstDate(new Date(Date.now() - REVIEW_MAX_AGE * 86400e3));
-  const stale = details.filter((x) => !x.d.r || x.d.r.at < cutoff).sort((a, b) => (a.d.r ? 1 : 0) - (b.d.r ? 1 : 0) || b.g.q - a.g.q).slice(0, REVIEW_LIMIT);
-  let fetched = 0, blocked = 0;
-  await pool(stale, 3, async (x) => {
-    if (blocked >= 5) return; // 요청 제한에 걸린 듯하면 오늘은 그만
-    const r = await fetchReviews(x.g.id, today);
-    if (r) { x.d.r = r; fetched++; blocked = 0; } else blocked++;
-    await sleep(250);
-  });
+  for (const lang of ['ko', ...Object.keys(LOCALES)]) {
+    const stale = details
+      .filter((x) => !x.d.r[lang] || x.d.r[lang].at < cutoff)
+      .sort((a, b) => (a.d.r[lang] ? 1 : 0) - (b.d.r[lang] ? 1 : 0) || b.g.q - a.g.q)
+      .slice(0, REVIEW_LIMIT);
+    let fetched = 0, blocked = 0;
+    await pool(stale, 3, async (x) => {
+      if (blocked >= 5) return; // 요청 제한에 걸린 듯하면 오늘은 그만
+      const r = await fetchReviews(x.g.id, today, lang);
+      if (r) { x.d.r[lang] = r; fetched++; blocked = 0; } else blocked++;
+      await sleep(250);
+    });
+    console.log(`   [${lang}] 리뷰 새로 받음 ${fetched}개 (대상 ${stale.length}), 보유 ${details.filter((x) => x.d.r[lang]).length}/${details.length}`);
+  }
   let written = 0;
   for (const x of details) {
     const json = JSON.stringify(x.d);
     if (json !== x.before) { await writeFile(x.file, json); written++; }
   }
-  console.log(`   리뷰 새로 받음 ${fetched}개 (대상 ${stale.length}), 상세 파일 ${written}개 갱신, 리뷰 보유 ${details.filter((x) => x.d.r).length}/${details.length}`);
+  console.log(`   상세 파일 ${written}개 갱신`);
+
+  // 언어별 덮어쓰기 데이터: 태그 이름, 현지 게임 이름(다를 때만), 현지 가격
+  for (const k of Object.keys(LOCALES)) {
+    const n = {}, pr = {};
+    for (const g of games) {
+      const li = locItems[k].get(g.id);
+      if (li?.name && li.name !== g.n) n[g.id] = li.name;
+      const p = priceOf(li);
+      if (p) pr[g.id] = p;
+    }
+    await writeFile(join(dirname(OUT), `l10n.${k}.json`), JSON.stringify({ tags: locTags[k], n, pr }));
+  }
 
   console.log('6/6 저장…');
   await mkdir(dirname(OUT), { recursive: true });

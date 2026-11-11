@@ -62,25 +62,28 @@ function blurb(g, tags, now) {
 }
 
 // 접어 두는 상세: 게임 소개, 플레이 정보, 한국어 리뷰 발췌
+const MODE_KO = { single: '싱글 플레이', coopOnline: '온라인 협동', coopLocal: '로컬 협동', pvpOnline: '온라인 대전(PvP)', pvpLocal: '로컬 대전', mmo: 'MMO', coop: '협동', pvp: '대전(PvP)' };
 function moreHtml(g, d) {
   if (!d) return '';
+  const r = d.r?.ko;
+  const desc = d.d?.ko || d.d?.en || '';
   const info = [];
-  if (d.m?.length) info.push(['플레이 방식', d.m.join(' · ')]);
-  info.push(['한국어', ['지원하지 않음', '지원 (자막·인터페이스)', '지원 (음성 포함)'][d.ko ?? 0]]);
+  if (d.m?.length) info.push(['플레이 방식', d.m.map((m) => MODE_KO[m] || m).join(' · ')]);
+  info.push(['한국어', ['지원하지 않음', '지원 (자막·인터페이스)', '지원 (음성 포함)'][d.lg?.ko ?? 0]]);
   if (d.ctrl) info.push(['컨트롤러', d.ctrl === 2 ? '완벽 지원' : '부분 지원']);
   if (d.deck > 1) info.push(['휴대 기기', d.deck === 3 ? '스팀덱 완벽 호환' : '스팀덱 플레이 가능']);
-  if (d.r?.pt) info.push(['플레이 시간', `리뷰 작성자 기준 보통 ${num(d.r.pt)}시간 정도`]);
+  if (r?.pt) info.push(['플레이 시간', `리뷰 작성자 기준 보통 ${num(r.pt)}시간 정도`]);
   if (d.dev) info.push(['개발', d.dev]);
   let reviews = '';
-  if (d.r?.kn) {
-    const quotes = d.r.rv
+  if (r?.kn) {
+    const quotes = r.rv
       .map((r) => `<blockquote class="${r.up ? 'up' : 'down'}"><span class="vote">${r.up ? '👍 추천' : '👎 비추천'}${r.h ? ` · ${num(r.h)}시간 플레이 후 작성` : ''}</span>${esc(r.t)}</blockquote>`)
       .join('\n');
-    reviews = `<h4>한국어 리뷰 (${num(d.r.kn)}개 중 ${d.r.kp}% 긍정)</h4>\n${quotes}\n<p><a href="https://store.steampowered.com/app/${g.id}#app_reviews_hash" target="_blank" rel="noopener">스팀에서 리뷰 전체 보기 →</a></p>`;
+    reviews = `<h4>한국어 리뷰 (${num(r.kn)}개 중 ${r.kp}% 긍정)</h4>\n${quotes}\n<p><a href="https://store.steampowered.com/app/${g.id}#app_reviews_hash" target="_blank" rel="noopener">스팀에서 리뷰 전체 보기 →</a></p>`;
   }
   return `  <details>
     <summary>자세히 보기 — 소개 · 플레이 정보 · 리뷰</summary>
-    ${d.d ? `<p>${esc(d.d)}</p>` : ''}
+    ${desc ? `<p>${esc(desc)}</p>` : ''}
     <h4>플레이 정보</h4>
     <dl class="info">${info.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     ${reviews}
@@ -91,9 +94,10 @@ async function loadDetail(g, today) {
   const file = join(ROOT, 'public', 'data', 'g', `${g.id}.json`);
   let d;
   try { d = JSON.parse(await readFile(file, 'utf8')); } catch { return null; }
-  if (!d.r) {
-    const r = await fetchReviews(g.id, today); // 글에 실리는 게임은 리뷰가 없으면 바로 받아 둔다
-    if (r) { d.r = r; await writeFile(file, JSON.stringify(d)); }
+  d.r ??= {};
+  if (!d.r.ko) {
+    const r = await fetchReviews(g.id, today, 'ko'); // 글에 실리는 게임은 리뷰가 없으면 바로 받아 둔다
+    if (r) { d.r.ko = r; await writeFile(file, JSON.stringify(d)); }
   }
   return d;
 }

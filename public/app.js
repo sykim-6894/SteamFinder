@@ -1,24 +1,19 @@
 'use strict';
+// 문구·언어 선택·숫자 표기(T, LANG, LANG_BIT, num, money)는 i18n.js 에 있다.
 const PAGE = 24;
 const $ = (s) => document.querySelector(s);
 const main = $('#main');
 
 let DATA = null;
-const state = { tab: 'home', cat: null, sort: {}, minDisc: 0, limit: {}, q: '', price: '', minPct: 0, ko: false };
+const state = { tab: 'home', cat: null, sort: {}, minDisc: 0, limit: {}, q: '', price: '', minPct: 0, langOnly: false };
 const prefs = Object.assign({ tags: [], hidden: [] }, JSON.parse(localStorage.getItem('sf-prefs') || '{}'));
 const savePrefs = () => localStorage.setItem('sf-prefs', JSON.stringify(prefs));
 
 // ---------- 표시용 헬퍼 ----------
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-function num(n) {
-  if (n >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억';
-  if (n >= 1e4) return (n / 1e4).toFixed(n >= 1e5 ? 0 : 1).replace(/\.0$/, '') + '만';
-  return n.toLocaleString('ko-KR');
-}
-const won = (n) => '₩' + n.toLocaleString('ko-KR');
-const RV = ['', '압도적으로 부정적', '매우 부정적', '부정적', '대체로 부정적', '복합적', '대체로 긍정적', '긍정적', '매우 긍정적', '압도적으로 긍정적'];
 const rvClass = (p) => (p >= 80 ? 'rv-good' : p >= 60 ? 'rv-mid' : 'rv-bad');
 const ageDays = (g) => (g.rel ? (Date.now() / 1000 - g.rel) / 86400 : 9999);
+const isFree = (g) => g.f || g.pr === 0;
 
 // 날짜+게임ID로 정해지는 난수: 하루 동안은 같은 결과, 날이 바뀌면 순서가 살짝 바뀐다
 function dailyRand(id) {
@@ -30,10 +25,10 @@ function dailyRand(id) {
 // ---------- 필터 ----------
 function passes(g) {
   if (prefs.hidden.includes(g.id)) return false;
-  if (state.q && !g.n.toLowerCase().includes(state.q)) return false;
-  if (state.price !== '' && g.pr > Number(state.price)) return false;
+  if (state.q && !g.n.toLowerCase().includes(state.q) && !g.n0.toLowerCase().includes(state.q)) return false;
+  if (state.price !== '' && (g.pr == null || g.pr > Number(state.price))) return false;
   if (g.p < state.minPct) return false;
-  if (state.ko && !g.ko) return false;
+  if (state.langOnly && !(g.lg & LANG_BIT)) return false;
   return true;
 }
 const pool = () => DATA.games.filter(passes);
@@ -71,58 +66,61 @@ function diversePick(games, count) {
 }
 
 // ---------- 카드 ----------
+function priceHtml(g, withUntil) {
+  if (isFree(g)) return `<strong>${T.free}</strong>`;
+  if (g.pr == null) return `<span class="muted">${T.notSold}</span>`;
+  if (!g.d) return `<strong>${money(g.pr)}</strong>`;
+  const until = withUntil && g.de ? `<span class="until">~${new Date(g.de * 1000).toLocaleDateString(T.locale, { month: 'numeric', day: 'numeric' })}</span>` : '';
+  return `<span class="off">-${g.d}%</span>${g.op ? `<s>${money(g.op)}</s>` : ''}<strong>${money(g.pr)}</strong>${until}`;
+}
+
 function card(g, i, mode) {
   const badges = [];
-  if (prefMatches(g)) badges.push('<span class="badge pref">취향 일치</span>');
+  if (prefMatches(g)) badges.push(`<span class="badge pref">${T.bPref}</span>`);
   if (mode === 'rise') {
-    if (g.ne) badges.push('<span class="badge hot">차트 신규 진입</span>');
-    if (g.g1 >= 10) badges.push(`<span class="badge hot">전일 대비 +${g.g1}%</span>`);
-    if (g.g7 >= 10) badges.push(`<span class="badge hot">주간 +${g.g7}%</span>`);
-    if (g.ru > 0) badges.push(`<span class="badge hot">인기 순위 ▲${g.ru}</span>`);
-  } else if (g.tr >= 4) badges.push('<span class="badge hot">상승세</span>');
-  if (ageDays(g) <= 45) badges.push('<span class="badge new">신작</span>');
+    if (g.ne) badges.push(`<span class="badge hot">${T.bNewEntry}</span>`);
+    if (g.g1 >= 10) badges.push(`<span class="badge hot">${T.bDay(g.g1)}</span>`);
+    if (g.g7 >= 10) badges.push(`<span class="badge hot">${T.bWeek(g.g7)}</span>`);
+    if (g.ru > 0) badges.push(`<span class="badge hot">${T.bRank(g.ru)}</span>`);
+  } else if (g.tr >= 4) badges.push(`<span class="badge hot">${T.bRising}</span>`);
+  if (ageDays(g) <= 45) badges.push(`<span class="badge new">${T.bNew}</span>`);
   for (const t of g.t.slice(0, 3)) if (DATA.tags[t]) badges.push(`<span class="badge">${esc(DATA.tags[t])}</span>`);
-
-  let price;
-  if (g.d) {
-    const until = g.de ? `<span class="until">~${new Date(g.de * 1000).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</span>` : '';
-    price = `<span class="off">-${g.d}%</span>${g.op ? `<s>${won(g.op)}</s>` : ''}<strong>${won(g.pr)}</strong>${until}`;
-  } else price = `<strong>${g.pr ? won(g.pr) : '무료'}</strong>`;
 
   return `<article class="card" data-open="${g.id}">
   <a class="thumb" href="https://store.steampowered.com/app/${g.id}" target="_blank" rel="noopener">
     <img src="${esc(g.img)}" alt="" loading="lazy" width="460" height="215">
-    <span class="score" title="종합 추천 점수 (100점 만점)">${g.q.toFixed(0)}</span>
+    <span class="score" title="${T.tipScore}">${g.q.toFixed(0)}</span>
     ${i != null ? `<span class="rank">${i + 1}</span>` : ''}
   </a>
-  <button class="hide" type="button" data-hide="${g.id}" title="이 게임 숨기기" aria-label="${esc(g.n)} 숨기기">✕</button>
+  <button class="hide" type="button" data-hide="${g.id}" title="${T.hide}" aria-label="${T.hide}: ${esc(g.n)}">✕</button>
   <a class="body" href="https://store.steampowered.com/app/${g.id}" target="_blank" rel="noopener">
     <div class="name">${esc(g.n)}</div>
     <div class="meta">
-      <span class="${rvClass(g.p)}"><b>${RV[g.rs] || '평가'}</b> ${g.p}%</span>
-      <span title="리뷰 수">리뷰 ${num(g.r)}</span>
-      <span title="수집 시점 동시 접속자">접속 ${num(g.ccu)}명</span>
-      <span title="리뷰 수 × 30으로 어림한 값">판매 약 ${num(g.r * 30)}</span>
+      <span class="${rvClass(g.p)}"><b>${T.rv[g.rs] || T.rvNone}</b> ${g.p}%</span>
+      <span title="${T.tipReviews}">${T.reviews(num(g.r))}</span>
+      <span title="${T.tipPlayers}">${T.players(num(g.ccu))}</span>
+      <span title="${T.tipSales}">${T.sales(num(g.r * 30))}</span>
     </div>
     <div class="badges">${badges.join('')}</div>
-    <div class="price">${price}</div>
+    <div class="price">${priceHtml(g, true)}</div>
   </a>
 </article>`;
 }
 
 function grid(games, key, mode, ranked) {
-  if (!games.length) return '<p class="empty">조건에 맞는 게임이 없어요. 필터를 조금 풀어보세요.</p>';
+  if (!games.length) return `<p class="empty">${T.empty}</p>`;
   const limit = state.limit[key] || PAGE;
-  const more = games.length > limit ? `<button class="btn ghost more" type="button" data-more="${key}">더 보기 (${Math.min(limit, games.length)} / ${games.length})</button>` : '';
+  const more = games.length > limit ? `<button class="btn ghost more" type="button" data-more="${key}">${T.more(Math.min(limit, games.length), games.length)}</button>` : '';
   return `<div class="grid">${games.slice(0, limit).map((g, i) => card(g, ranked ? i : null, mode)).join('')}</div>${more}`;
 }
 
 const head = (title, desc, extra = '') => `<div class="section-head"><h2>${title}</h2><p>${desc}</p>${extra}</div>`;
 const sortSel = (key, opts) =>
-  `<div class="sortbar"><select data-sort="${key}" aria-label="정렬">${opts
+  `<div class="sortbar"><select data-sort="${key}" aria-label="${T.sort}">${opts
     .map(([v, l]) => `<option value="${v}"${(state.sort[key] || opts[0][0]) === v ? ' selected' : ''}>${l}</option>`)
     .join('')}</select></div>`;
 
+const priceKey = (g) => (g.pr == null ? Infinity : g.pr);
 const SORTS = {
   q: (a, b) => b.q - a.q,
   p: (a, b) => b.p - a.p || b.r - a.r,
@@ -130,7 +128,7 @@ const SORTS = {
   r: (a, b) => b.r - a.r,
   new: (a, b) => b.rel - a.rel,
   d: (a, b) => b.d - a.d || b.q - a.q,
-  low: (a, b) => a.pr - b.pr || b.q - a.q,
+  low: (a, b) => priceKey(a) - priceKey(b) || b.q - a.q,
   deal: (a, b) => b.q * 0.65 + b.d * 0.35 - (a.q * 0.65 + a.d * 0.35),
   tr: (a, b) => b.tr * (0.4 + b.q / 100) - a.tr * (0.4 + a.q / 100), // 상승세가 같다면 평 좋은 게임 먼저
 };
@@ -138,20 +136,17 @@ const SORTS = {
 // ---------- 탭별 화면 ----------
 function viewHome() {
   const all = pool();
-  if (state.q) return head('검색 결과', `${all.length}개`) + grid(all.sort(SORTS.q), 'search');
+  if (state.q) return head(T.searchResult, T.count(all.length)) + grid(all.sort(SORTS.q), 'search');
   const picks = diversePick(all, 60);
   const gems = all.filter((g) => g.p >= 92 && g.r >= 500 && g.r <= 30000).sort((a, b) => b.p * 2 + b.q + dailyRand(b.id) * 10 - (a.p * 2 + a.q + dailyRand(a.id) * 10));
   const fresh = all.filter((g) => ageDays(g) <= 120 && g.p >= 70).sort(SORTS.q);
-  const free = all.filter((g) => !g.pr).sort(SORTS.q);
-  const prefNote = prefs.tags.length
-    ? `취향 반영 중: ${prefs.tags.map((t) => esc(DATA.tags[t] || '')).join(', ')}`
-    : "'취향 설정'에서 좋아하는 장르를 고르면 맞춤 추천이 됩니다";
+  const free = all.filter(isFree).sort(SORTS.q);
+  const prefNote = prefs.tags.length ? T.prefOn(prefs.tags.map((t) => esc(DATA.tags[t] || '')).join(', ')) : T.prefOff;
   return (
-    head('오늘의 추천', `평가·접속자·판매 규모 종합 + 할인·상승세 반영, 매일 조금씩 바뀝니다. ${prefNote}`) +
-    grid(picks, 'picks', 'home', true) +
-    head('숨은 명작', '덜 알려졌지만 긍정 평가 92% 이상') + grid(gems.slice(0, 48), 'gems') +
-    head('주목할 신작', '최근 4개월 내 출시') + grid(fresh.slice(0, 48), 'fresh') +
-    head('무료로 즐기기', '무료 게임 중 종합 점수 순') + grid(free.slice(0, 48), 'free')
+    head(T.homeTitle, `${T.homeDesc} ${prefNote}`) + grid(picks, 'picks', 'home', true) +
+    head(T.gemsTitle, T.gemsDesc) + grid(gems.slice(0, 48), 'gems') +
+    head(T.freshTitle, T.freshDesc) + grid(fresh.slice(0, 48), 'fresh') +
+    head(T.freeTitle, T.freeDesc) + grid(free.slice(0, 48), 'free')
   );
 }
 
@@ -162,29 +157,27 @@ function viewCat() {
     .join('');
   const list = pool().filter((g) => g.t.includes(cat)).sort(SORTS[state.sort.cat || 'q']);
   return (
-    head('카테고리별 추천', '장르를 골라보세요') + `<div class="chips">${chips}</div>` +
-    head(esc(DATA.tags[cat]), `${list.length}개`, sortSel('cat', [['q', '추천순'], ['p', '평가순'], ['ccu', '접속자순'], ['r', '판매량순'], ['new', '최신순']])) +
+    head(T.catTitle, T.catDesc) + `<div class="chips">${chips}</div>` +
+    head(esc(DATA.tags[cat]), T.count(list.length), sortSel('cat', [['q', T.sRec], ['p', T.sRate], ['ccu', T.sPlayers], ['r', T.sSales], ['new', T.sNew]])) +
     grid(list, 'cat', 'cat', true)
   );
 }
 
 function viewDeal() {
-  const chips = [[0, '전체'], [30, '30% 이상'], [50, '50% 이상'], [75, '75% 이상']]
-    .map(([v, l]) => `<button class="chip${state.minDisc === v ? ' on' : ''}" type="button" data-disc="${v}">${l}</button>`)
+  const chips = [0, 30, 50, 75]
+    .map((v) => `<button class="chip${state.minDisc === v ? ' on' : ''}" type="button" data-disc="${v}">${v ? T.discMin(v) : T.discAll}</button>`)
     .join('');
   const list = pool().filter((g) => g.d >= Math.max(state.minDisc, 10)).sort(SORTS[state.sort.deal || 'deal']);
   return (
-    head('할인 추천', `지금 할인 중인 ${list.length}개 — 좋은 게임이 크게 할인할수록 위로`, sortSel('deal', [['deal', '추천순'], ['d', '할인율순'], ['low', '가격 낮은순'], ['p', '평가순']])) +
+    head(T.dealTitle, T.dealDesc(list.length), sortSel('deal', [['deal', T.sRec], ['d', T.sDisc], ['low', T.sLow], ['p', T.sRate]])) +
     `<div class="chips" style="margin-bottom:16px">${chips}</div>` + grid(list, 'deal', 'deal', true)
   );
 }
 
 function viewRise() {
   const list = pool().filter((g) => g.tr > 0.5 && g.ccu >= 100 && g.p >= 60).sort(SORTS.tr);
-  const note = DATA.historyDays < 2
-    ? '<div class="note">접속자 기록을 쌓기 시작한 첫날이라, 지금은 Steam 주간 인기 순위 변동과 신작 위주로 보여줍니다. 내일부터 전일 대비 증가율이 반영됩니다.</div>'
-    : DATA.historyDays < 8 ? `<div class="note">접속자 기록 ${DATA.historyDays}일차 — 주간 증가율은 8일차부터 온전히 반영됩니다.</div>` : '';
-  return head('급상승 게임', '동시 접속자 증가율 · 인기 순위 상승 · 신작 반응 종합') + note + grid(list, 'rise', 'rise', true);
+  const note = DATA.historyDays < 2 ? `<div class="note">${T.riseDay1}</div>` : DATA.historyDays < 8 ? `<div class="note">${T.riseDayN(DATA.historyDays)}</div>` : '';
+  return head(T.riseTitle, T.riseDesc) + note + grid(list, 'rise', 'rise', true);
 }
 
 const VIEWS = { home: viewHome, cat: viewCat, deal: viewDeal, rise: viewRise };
@@ -230,51 +223,56 @@ $('#search').addEventListener('input', (e) => {
 });
 $('#price').addEventListener('change', (e) => { state.price = e.target.value; render(); });
 $('#minPct').addEventListener('change', (e) => { state.minPct = Number(e.target.value); render(); });
-$('#koOnly').addEventListener('change', (e) => { state.ko = e.target.checked; render(); });
+$('#langOnly').addEventListener('change', (e) => { state.langOnly = e.target.checked; render(); });
+$('#lang').addEventListener('change', (e) => {
+  localStorage.setItem('sf-lang', e.target.value);
+  const url = new URL(location.href);
+  url.searchParams.delete('lang'); // 주소에 남은 ?lang= 이 새 선택을 덮어쓰지 않게
+  location.replace(url);
+  if (url.href === location.href) location.reload();
+});
 
 // ---------- 게임 상세 창 ----------
 const detailDlg = $('#detail');
-const DECK = ['', '스팀덱 미지원', '스팀덱 플레이 가능', '스팀덱 완벽 호환'];
 function detailHtml(g, d) {
   const store = `https://store.steampowered.com/app/${g.id}`;
-  const price = g.d
-    ? `<span class="off">-${g.d}%</span>${g.op ? `<s>${won(g.op)}</s>` : ''}<strong>${won(g.pr)}</strong>`
-    : `<strong>${g.pr ? won(g.pr) : '무료'}</strong>`;
-  let more = '<p class="muted">상세 정보를 불러오는 중…</p>';
-  if (d === null) more = '<p class="muted">상세 정보가 아직 준비되지 않았습니다.</p>';
+  let more = `<p class="muted">${T.dLoading}</p>`;
+  if (d === null) more = `<p class="muted">${T.dNone}</p>`;
   else if (d) {
+    const r = d.r?.[LANG];
+    const desc = d.d?.[LANG] || d.d?.en || d.d?.ko || '';
     const info = [];
-    if (d.m.length) info.push(['플레이 방식', d.m.join(' · ')]);
-    info.push(['한국어', ['지원하지 않음', '지원 (자막·인터페이스)', '지원 (음성 포함)'][d.ko]]);
-    if (d.ctrl) info.push(['컨트롤러', d.ctrl === 2 ? '완벽 지원' : '부분 지원']);
-    if (d.deck > 1) info.push(['휴대 기기', DECK[d.deck]]);
-    if (d.r?.pt) info.push(['플레이 시간', `리뷰 작성자 기준 보통 ${num(d.r.pt)}시간 정도 (중앙값)`]);
-    if (d.dev) info.push(['개발', d.dev]);
-    if (g.rel) info.push(['출시', new Date(g.rel * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })]);
+    if (d.m?.length) info.push([T.dMode, d.m.map((m) => T.modes[m] || m).join(' · ')]);
+    info.push([T.dLang, T.dLangLv[d.lg?.[LANG] ?? 0]]);
+    if (d.ctrl) info.push([T.dCtrl, T.dCtrlLv[d.ctrl]]);
+    if (d.deck > 1) info.push([T.dDeck, T.dDeckLv[d.deck]]);
+    if (r?.pt) info.push([T.dTime, T.dTimeVal(num(r.pt))]);
+    if (d.dev) info.push([T.dDev, d.dev]);
+    if (g.rel) info.push([T.dRel, new Date(g.rel * 1000).toLocaleDateString(T.locale, { year: 'numeric', month: 'long', day: 'numeric' })]);
     const tags = g.t.map((t) => DATA.tags[t]).filter(Boolean).map((t) => `<span class="badge">${esc(t)}</span>`).join('');
     let reviews = '';
-    if (d.r?.kn) {
-      const quotes = d.r.rv
-        .map((r) => `<blockquote class="${r.up ? 'up' : 'down'}"><span class="vote">${r.up ? '👍 추천' : '👎 비추천'}${r.h ? ` · ${num(r.h)}시간 플레이 후 작성` : ''}</span>${esc(r.t)}</blockquote>`)
+    if (r?.kn) {
+      const quotes = r.rv
+        .map((x) => `<blockquote class="${x.up ? 'up' : 'down'}"><span class="vote">${x.up ? T.up : T.down}${x.h ? T.hoursAt(num(x.h)) : ''}</span>${esc(x.t)}</blockquote>`)
         .join('');
-      reviews = `<h3>한국어 리뷰</h3>
-        <p class="muted">한국어 리뷰 ${num(d.r.kn)}개 중 <b class="${rvClass(d.r.kp)}">${d.r.kp}% 긍정</b>${quotes ? ' · 도움이 된 리뷰 일부 발췌' : ''}</p>${quotes}
-        <p><a class="link" href="${store}#app_reviews_hash" target="_blank" rel="noopener">스팀에서 리뷰 전체 보기 →</a></p>`;
-    } else if (d.r) reviews = '<h3>한국어 리뷰</h3><p class="muted">아직 한국어 리뷰가 없습니다.</p>';
-    more = `${d.d ? `<p class="desc">${esc(d.d)}</p>` : ''}
+      reviews = `<h3>${T.dReviews}</h3>
+        <p class="muted ${rvClass(r.kp)}-b">${T.dReviewSum(num(r.kn), r.kp)}${quotes ? T.dExcerpt : ''}</p>${quotes}
+        <p><a class="link" href="${store}#app_reviews_hash" target="_blank" rel="noopener">${T.dAllReviews}</a></p>`;
+    } else if (r) reviews = `<h3>${T.dReviews}</h3><p class="muted">${T.dNoReviews}</p>`;
+    more = `${desc ? `<p class="desc">${esc(desc)}</p>` : ''}
       <div class="badges">${tags}</div>
-      <h3>플레이 정보</h3>
+      <h3>${T.dInfo}</h3>
       <dl class="info">${info.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
       ${reviews}`;
   }
-  return `<button class="close" type="button" data-close aria-label="닫기">✕</button>
+  return `<button class="close" type="button" data-close aria-label="${T.close}">✕</button>
     <img class="hero" src="${esc(g.img)}" alt="" width="460" height="215">
     <h2>${esc(g.n)}</h2>
     <div class="meta">
-      <span class="${rvClass(g.p)}"><b>${RV[g.rs] || '평가'}</b> ${g.p}%</span>
-      <span>리뷰 ${num(g.r)}</span><span>접속 ${num(g.ccu)}명</span><span>추천 점수 ${g.q.toFixed(0)}점</span>
+      <span class="${rvClass(g.p)}"><b>${T.rv[g.rs] || T.rvNone}</b> ${g.p}%</span>
+      <span>${T.reviews(num(g.r))}</span><span>${T.players(num(g.ccu))}</span><span>${T.dScore(g.q.toFixed(0))}</span>
     </div>
-    <div class="price">${price}<a class="btn" href="${store}" target="_blank" rel="noopener">스팀 상점에서 보기</a></div>
+    <div class="price">${priceHtml(g)}<a class="btn" href="${store}" target="_blank" rel="noopener">${T.dStore}</a></div>
     ${more}`;
 }
 async function openDetail(id) {
@@ -297,10 +295,11 @@ detailDlg.addEventListener('click', (e) => {
 
 const dlg = $('#prefs');
 $('#prefsBtn').addEventListener('click', () => {
+  if (!DATA) return;
   $('#prefTags').innerHTML = DATA.categories
     .map((c) => `<button class="chip${prefs.tags.includes(c) ? ' on' : ''}" type="button" data-tag="${c}">${esc(DATA.tags[c])}</button>`)
     .join('');
-  $('#resetHidden').textContent = `숨긴 게임 되돌리기 (${prefs.hidden.length})`;
+  $('#resetHidden').textContent = T.resetHidden(prefs.hidden.length);
   dlg.showModal();
 });
 $('#prefTags').addEventListener('click', (e) => {
@@ -311,17 +310,42 @@ $('#prefTags').addEventListener('click', (e) => {
   el.classList.toggle('on');
   savePrefs();
 });
-$('#resetHidden').addEventListener('click', () => { prefs.hidden = []; savePrefs(); $('#resetHidden').textContent = '숨긴 게임 되돌리기 (0)'; });
+$('#resetHidden').addEventListener('click', () => { prefs.hidden = []; savePrefs(); $('#resetHidden').textContent = T.resetHidden(0); });
 dlg.addEventListener('close', render);
 
+// ---------- 고정 문구 채우기 ----------
+function applyStatic() {
+  document.documentElement.lang = T.locale.slice(0, 2) === 'zh' ? 'zh-CN' : T.locale.slice(0, 2);
+  document.title = T.title;
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = T[el.dataset.i18n]; });
+  $('#search').placeholder = T.searchPh;
+  $('#lang').innerHTML = Object.entries(LANG_NAMES).map(([k, v]) => `<option value="${k}"${k === LANG ? ' selected' : ''}>${v}</option>`).join('');
+  $('#price').innerHTML = `<option value="">${T.priceAll}</option><option value="0">${T.priceFree}</option>` +
+    T.priceSteps.map((p) => `<option value="${p}">${T.priceUnder(money(p))}</option>`).join('');
+  $('#minPct').innerHTML = `<option value="0">${T.rateAll}</option>` + [70, 80, 90, 95].map((n) => `<option value="${n}">${T.rateMin(n)}</option>`).join('');
+  $('#weeklyLink').hidden = LANG !== 'ko'; // 주간 글은 한국어로만 발행
+}
+applyStatic();
+
 // ---------- 시작 ----------
-fetch('data/games.json')
-  .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then((d) => {
+const getJSON = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+Promise.all([getJSON('data/games.json'), LANG === 'ko' ? null : getJSON(`data/l10n.${LANG}.json`)])
+  .then(([d, loc]) => {
+    for (const g of d.games) {
+      g.n0 = g.n;
+      if (!loc) continue;
+      // 다른 언어: 이름·태그·가격을 그 언어/지역 값으로 바꾼다
+      if (loc.n[g.id]) g.n = loc.n[g.id];
+      const p = loc.pr[g.id];
+      delete g.d; delete g.op; delete g.de;
+      if (p) { g.pr = p[0]; if (p[2]) { g.op = p[1]; g.d = p[2]; g.de = p[3]; } }
+      else g.pr = g.f ? 0 : null; // 그 지역 상점에서 팔지 않는 게임
+    }
+    if (loc) d.tags = Object.assign({}, d.tags, loc.tags);
     DATA = d;
     const up = new Date(d.updated);
     DATA.daySeed = Math.floor(up.getTime() / 86400e3);
-    $('#updated').textContent = `${up.toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })} 갱신 · 게임 ${d.games.length.toLocaleString('ko-KR')}개`;
+    $('#updated').textContent = T.updated(up.toLocaleString(T.locale, { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }), d.games.length.toLocaleString(T.locale));
     route();
   })
-  .catch((e) => { main.innerHTML = `<p class="empty">데이터를 불러오지 못했습니다 (${esc(e.message)}).</p>`; });
+  .catch((e) => { main.innerHTML = `<p class="empty">${T.loadFail(esc(e.message))}</p>`; });

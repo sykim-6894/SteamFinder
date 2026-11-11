@@ -8,7 +8,9 @@
 | --- | --- |
 | `scripts/update.mjs` | Steam 공식 API에서 데이터를 모아 점수를 계산 (Node 22+, 의존성 없음) |
 | `public/` | 배포되는 사이트 (`index.html`, `app.js`, `style.css`, `data/games.json`) |
-| `scripts/reviews.mjs` | 한국어 리뷰 요약·발췌 수집 (하루 300개씩, 14일마다 갱신) |
+| `scripts/reviews.mjs` | 언어별(한국어·영어·중국어) 리뷰 요약·발췌 수집 (언어마다 하루 300개씩, 14일마다 갱신) |
+| `public/i18n.js` | 화면 문구 3개 언어와 언어 선택 (`?lang=en` 처럼 주소로도 지정 가능) |
+| `public/data/l10n.*.json` | 영어·중국어용 게임 이름, 태그, 현지 가격(USD·CNY) |
 | `scripts/weekly.mjs` | 매주 월요일 기준 주간 추천 글 생성 (`public/weekly/`) |
 | `public/data/g/` | 게임별 상세 정보 (소개·플레이 정보·리뷰 발췌) — 상세 창에서 필요할 때만 불러옴 |
 | `data/history.json` | 최근 15일 동시 접속자 기록 — 급상승 계산용 |

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SteamFinder — 오늘 뭐 하지? 스팀 게임 추천</title>
-  <meta name="description" content="평가·동시 접속자·판매 규모를 종합해 매일 갱신하는 스팀 게임 추천. 자동 추천, 카테고리별, 할인, 급상승.">
+  <title>SteamFinder — Steam game recommendations</title>
+  <meta name="description" content="Daily Steam game recommendations combining ratings, concurrent players and sales. 스팀 게임 추천 · Steam 游戏推荐.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -13,57 +13,47 @@
     <div class="wrap top-row">
       <a class="brand" href="#home"><span class="brand-mark">S</span>SteamFinder</a>
       <span class="updated" id="updated"></span>
-      <button class="btn ghost" id="prefsBtn" type="button">취향 설정</button>
+      <select id="lang" class="lang" aria-label="Language"></select>
+      <button class="btn ghost" id="prefsBtn" type="button" data-i18n="prefsBtn"></button>
     </div>
     <nav class="wrap tabs" id="tabs">
-      <a href="#home" data-tab="home">오늘의 추천</a>
-      <a href="#cat" data-tab="cat">카테고리</a>
-      <a href="#deal" data-tab="deal">할인</a>
-      <a href="#rise" data-tab="rise">급상승</a>
-      <a href="weekly/">주간 추천</a>
+      <a href="#home" data-tab="home" data-i18n="tabHome"></a>
+      <a href="#cat" data-tab="cat" data-i18n="tabCat"></a>
+      <a href="#deal" data-tab="deal" data-i18n="tabDeal"></a>
+      <a href="#rise" data-tab="rise" data-i18n="tabRise"></a>
+      <a href="weekly/" id="weeklyLink" data-i18n="tabWeekly" hidden></a>
     </nav>
   </header>
 
   <div class="wrap filters">
-    <input id="search" type="search" placeholder="게임 이름 검색" autocomplete="off">
-    <select id="price" aria-label="가격">
-      <option value="">가격 전체</option>
-      <option value="0">무료</option>
-      <option value="10000">1만원 이하</option>
-      <option value="30000">3만원 이하</option>
-      <option value="60000">6만원 이하</option>
-    </select>
-    <select id="minPct" aria-label="평가">
-      <option value="0">평가 전체</option>
-      <option value="70">긍정 70% 이상</option>
-      <option value="80">긍정 80% 이상</option>
-      <option value="90">긍정 90% 이상</option>
-      <option value="95">긍정 95% 이상</option>
-    </select>
-    <label class="check"><input id="koOnly" type="checkbox"> 한국어 지원만</label>
+    <input id="search" type="search" autocomplete="off">
+    <select id="price"></select>
+    <select id="minPct"></select>
+    <label class="check"><input id="langOnly" type="checkbox"> <span data-i18n="langOnly"></span></label>
   </div>
 
-  <main class="wrap" id="main"><p class="empty">불러오는 중…</p></main>
+  <main class="wrap" id="main"><p class="empty" data-i18n="loading"></p></main>
 
   <footer class="wrap foot">
-    <p>추천 점수 = 평가(윌슨 하한) 50% + 판매 규모(리뷰 수) 25% + 동시 접속자 25%. 판매량은 리뷰 수 × 30으로 어림한 값입니다.</p>
-    <p>데이터 출처: Steam. 이 사이트는 Valve와 제휴 관계가 없는 비공식 팬 프로젝트입니다. 매일 1회 갱신.</p>
+    <p data-i18n="foot1"></p>
+    <p data-i18n="foot2"></p>
   </footer>
 
   <dialog id="prefs">
     <form method="dialog">
-      <h2>취향 설정</h2>
-      <p class="muted">좋아하는 장르를 고르면 '오늘의 추천'에 반영됩니다. 이 브라우저에만 저장됩니다.</p>
+      <h2 data-i18n="prefsTitle"></h2>
+      <p class="muted" data-i18n="prefsDesc"></p>
       <div class="chips" id="prefTags"></div>
       <div class="dialog-row">
-        <button class="btn ghost" id="resetHidden" type="button">숨긴 게임 되돌리기</button>
-        <button class="btn" value="ok">완료</button>
+        <button class="btn ghost" id="resetHidden" type="button"></button>
+        <button class="btn" value="ok" data-i18n="done"></button>
       </div>
     </form>
   </dialog>
 
   <dialog id="detail"></dialog>
 
+  <script src="i18n.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
