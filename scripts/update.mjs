@@ -1,12 +1,16 @@
 // Steam 데이터를 수집해 public/data/games.json 을 만든다. (하루 1회 실행, API 키 불필요)
 // 사용: node scripts/update.mjs
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { fetchReviews, playModes } from './reviews.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'public', 'data', 'games.json');
 const HISTORY = join(ROOT, 'data', 'history.json');
+const DETAIL_DIR = join(ROOT, 'public', 'data', 'g');
+const REVIEW_LIMIT = Number(process.env.REVIEW_LIMIT ?? 300); // 하루에 리뷰를 새로 받을 게임 수
+const REVIEW_MAX_AGE = 14; // 일
 const API = 'https://api.steampowered.com';
 const CONTEXT = { language: 'koreana', country_code: 'KR' };
 const ASSET_BASE = 'https://shared.akamai.steamstatic.com/store_item_assets/';
@@ -111,6 +115,9 @@ async function fetchItems(appids) {
         context: CONTEXT,
         data_request: {
           include_tag_count: 8,
+          include_basic_info: true,
+          include_supported_languages: true,
+          include_platforms: true,
           include_reviews: true,
           include_release: true,
           include_assets: true,
@@ -155,7 +162,7 @@ function qualityScore(pct, reviews, ccu) {
 const kstDate = (d = new Date()) => new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
 
 async function main() {
-  console.log('1/5 후보 수집…');
+  console.log('1/6 후보 수집…');
   const [charts, live, tagList, ...lists] = await Promise.all([
     getJSON(`${API}/ISteamChartsService/GetMostPlayedGames/v1/`),
     getJSON(`${API}/ISteamChartsService/GetGamesByConcurrentPlayers/v1/`),
@@ -175,7 +182,7 @@ async function main() {
   console.log(`   후보 ${candidates.length}개`);
   if (candidates.length < 500) throw new Error('후보가 너무 적음 — API 응답 이상');
 
-  console.log('2/5 상세 정보…');
+  console.log('2/6 상세 정보…');
   const items = (await fetchItems(candidates)).filter((it) => {
     const rv = it.reviews?.summary_filtered;
     return (
@@ -190,14 +197,14 @@ async function main() {
   });
   console.log(`   유효 ${items.length}개`);
 
-  console.log('3/5 동시 접속자…');
+  console.log('3/6 동시 접속자…');
   const ccus = await pool(items, 12, (it) =>
     liveCcu.has(it.appid) ? liveCcu.get(it.appid) : fetchCcu(it.appid),
   );
   const failed = ccus.filter((c) => c === null).length;
   if (failed) console.warn(`   CCU 실패 ${failed}건`);
 
-  console.log('4/5 히스토리·점수…');
+  console.log('4/6 히스토리·점수…');
   let history = { days: {} };
   try {
     history = JSON.parse(await readFile(HISTORY, 'utf8'));
@@ -259,6 +266,7 @@ async function main() {
       tr: Math.round(trend * 10) / 10,
     };
     if (it.is_free) g.f = 1;
+    if ((it.supported_languages ?? []).some((l) => l.elanguage === 4 && l.supported)) g.ko = 1;
     if (disc) Object.assign(g, { d: disc, op: orig, de: discEnd });
     if (g1 != null) g.g1 = Math.round((ccu / Math.max(p1, 1) - 1) * 100);
     if (g7 != null) g.g7 = Math.round((ccu / Math.max(p7, 1) - 1) * 100);
@@ -280,7 +288,44 @@ async function main() {
   for (const g of games) for (const t of g.t) counts[t] = (counts[t] ?? 0) + 1;
   const categories = CATEGORY_TAGS.filter((t) => tags[t] && counts[t] >= 15);
 
-  console.log('5/5 저장…');
+  console.log('5/6 상세 정보·리뷰…');
+  await mkdir(DETAIL_DIR, { recursive: true });
+  const byId = new Map(items.map((it) => [it.appid, it]));
+  const details = await pool(games, 16, async (g) => {
+    const it = byId.get(g.id);
+    const file = join(DETAIL_DIR, `${g.id}.json`);
+    let old = null;
+    try { old = JSON.parse(await readFile(file, 'utf8')); } catch {}
+    const ko = (it.supported_languages ?? []).find((l) => l.elanguage === 4 && l.supported);
+    const d = {
+      d: it.basic_info?.short_description ?? '',
+      dev: (it.basic_info?.developers ?? []).map((x) => x.name).slice(0, 2).join(', '),
+      m: playModes(it.categories?.supported_player_categoryids),
+      ctrl: (it.categories?.controller_categoryids ?? []).includes(28) ? 2 : (it.categories?.controller_categoryids ?? []).includes(18) ? 1 : 0,
+      deck: it.platforms?.steam_deck_compat_category ?? 0,
+      ko: ko ? (ko.full_audio ? 2 : 1) : 0,
+    };
+    if (old?.r) d.r = old.r;
+    return { g, file, d, before: old ? JSON.stringify(old) : '' };
+  });
+  // 리뷰가 없거나 오래된 게임부터, 점수 높은 순으로 하루 REVIEW_LIMIT개만 새로 받는다
+  const cutoff = kstDate(new Date(Date.now() - REVIEW_MAX_AGE * 86400e3));
+  const stale = details.filter((x) => !x.d.r || x.d.r.at < cutoff).sort((a, b) => (a.d.r ? 1 : 0) - (b.d.r ? 1 : 0) || b.g.q - a.g.q).slice(0, REVIEW_LIMIT);
+  let fetched = 0, blocked = 0;
+  await pool(stale, 3, async (x) => {
+    if (blocked >= 5) return; // 요청 제한에 걸린 듯하면 오늘은 그만
+    const r = await fetchReviews(x.g.id, today);
+    if (r) { x.d.r = r; fetched++; blocked = 0; } else blocked++;
+    await sleep(250);
+  });
+  let written = 0;
+  for (const x of details) {
+    const json = JSON.stringify(x.d);
+    if (json !== x.before) { await writeFile(x.file, json); written++; }
+  }
+  console.log(`   리뷰 새로 받음 ${fetched}개 (대상 ${stale.length}), 상세 파일 ${written}개 갱신, 리뷰 보유 ${details.filter((x) => x.d.r).length}/${details.length}`);
+
+  console.log('6/6 저장…');
   await mkdir(dirname(OUT), { recursive: true });
   await mkdir(dirname(HISTORY), { recursive: true });
   await writeFile(

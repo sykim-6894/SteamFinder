@@ -4,7 +4,7 @@ const $ = (s) => document.querySelector(s);
 const main = $('#main');
 
 let DATA = null;
-const state = { tab: 'home', cat: null, sort: {}, minDisc: 0, limit: {}, q: '', price: '', minPct: 0 };
+const state = { tab: 'home', cat: null, sort: {}, minDisc: 0, limit: {}, q: '', price: '', minPct: 0, ko: false };
 const prefs = Object.assign({ tags: [], hidden: [] }, JSON.parse(localStorage.getItem('sf-prefs') || '{}'));
 const savePrefs = () => localStorage.setItem('sf-prefs', JSON.stringify(prefs));
 
@@ -33,6 +33,7 @@ function passes(g) {
   if (state.q && !g.n.toLowerCase().includes(state.q)) return false;
   if (state.price !== '' && g.pr > Number(state.price)) return false;
   if (g.p < state.minPct) return false;
+  if (state.ko && !g.ko) return false;
   return true;
 }
 const pool = () => DATA.games.filter(passes);
@@ -88,7 +89,7 @@ function card(g, i, mode) {
     price = `<span class="off">-${g.d}%</span>${g.op ? `<s>${won(g.op)}</s>` : ''}<strong>${won(g.pr)}</strong>${until}`;
   } else price = `<strong>${g.pr ? won(g.pr) : '무료'}</strong>`;
 
-  return `<article class="card">
+  return `<article class="card" data-open="${g.id}">
   <a class="thumb" href="https://store.steampowered.com/app/${g.id}" target="_blank" rel="noopener">
     <img src="${esc(g.img)}" alt="" loading="lazy" width="460" height="215">
     <span class="score" title="종합 추천 점수 (100점 만점)">${g.q.toFixed(0)}</span>
@@ -205,7 +206,12 @@ window.addEventListener('hashchange', route);
 
 main.addEventListener('click', (e) => {
   const el = e.target.closest('[data-hide],[data-more],[data-cat],[data-disc]');
-  if (!el) return;
+  if (!el) {
+    // 카드를 누르면 상세 창 (Ctrl·가운데 클릭은 그대로 스팀 상점으로)
+    const c = e.target.closest('[data-open]');
+    if (c && !e.ctrlKey && !e.metaKey && !e.shiftKey) { e.preventDefault(); openDetail(Number(c.dataset.open)); }
+    return;
+  }
   if (el.dataset.hide) { prefs.hidden.push(Number(el.dataset.hide)); savePrefs(); }
   else if (el.dataset.more) state.limit[el.dataset.more] = (state.limit[el.dataset.more] || PAGE) + PAGE * 2;
   else if (el.dataset.cat) { state.cat = Number(el.dataset.cat); state.limit.cat = PAGE; }
@@ -224,6 +230,70 @@ $('#search').addEventListener('input', (e) => {
 });
 $('#price').addEventListener('change', (e) => { state.price = e.target.value; render(); });
 $('#minPct').addEventListener('change', (e) => { state.minPct = Number(e.target.value); render(); });
+$('#koOnly').addEventListener('change', (e) => { state.ko = e.target.checked; render(); });
+
+// ---------- 게임 상세 창 ----------
+const detailDlg = $('#detail');
+const DECK = ['', '스팀덱 미지원', '스팀덱 플레이 가능', '스팀덱 완벽 호환'];
+function detailHtml(g, d) {
+  const store = `https://store.steampowered.com/app/${g.id}`;
+  const price = g.d
+    ? `<span class="off">-${g.d}%</span>${g.op ? `<s>${won(g.op)}</s>` : ''}<strong>${won(g.pr)}</strong>`
+    : `<strong>${g.pr ? won(g.pr) : '무료'}</strong>`;
+  let more = '<p class="muted">상세 정보를 불러오는 중…</p>';
+  if (d === null) more = '<p class="muted">상세 정보가 아직 준비되지 않았습니다.</p>';
+  else if (d) {
+    const info = [];
+    if (d.m.length) info.push(['플레이 방식', d.m.join(' · ')]);
+    info.push(['한국어', ['지원하지 않음', '지원 (자막·인터페이스)', '지원 (음성 포함)'][d.ko]]);
+    if (d.ctrl) info.push(['컨트롤러', d.ctrl === 2 ? '완벽 지원' : '부분 지원']);
+    if (d.deck > 1) info.push(['휴대 기기', DECK[d.deck]]);
+    if (d.r?.pt) info.push(['플레이 시간', `리뷰 작성자 기준 보통 ${num(d.r.pt)}시간 정도 (중앙값)`]);
+    if (d.dev) info.push(['개발', d.dev]);
+    if (g.rel) info.push(['출시', new Date(g.rel * 1000).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })]);
+    const tags = g.t.map((t) => DATA.tags[t]).filter(Boolean).map((t) => `<span class="badge">${esc(t)}</span>`).join('');
+    let reviews = '';
+    if (d.r?.kn) {
+      const quotes = d.r.rv
+        .map((r) => `<blockquote class="${r.up ? 'up' : 'down'}"><span class="vote">${r.up ? '👍 추천' : '👎 비추천'}${r.h ? ` · ${num(r.h)}시간 플레이 후 작성` : ''}</span>${esc(r.t)}</blockquote>`)
+        .join('');
+      reviews = `<h3>한국어 리뷰</h3>
+        <p class="muted">한국어 리뷰 ${num(d.r.kn)}개 중 <b class="${rvClass(d.r.kp)}">${d.r.kp}% 긍정</b>${quotes ? ' · 도움이 된 리뷰 일부 발췌' : ''}</p>${quotes}
+        <p><a class="link" href="${store}#app_reviews_hash" target="_blank" rel="noopener">스팀에서 리뷰 전체 보기 →</a></p>`;
+    } else if (d.r) reviews = '<h3>한국어 리뷰</h3><p class="muted">아직 한국어 리뷰가 없습니다.</p>';
+    more = `${d.d ? `<p class="desc">${esc(d.d)}</p>` : ''}
+      <div class="badges">${tags}</div>
+      <h3>플레이 정보</h3>
+      <dl class="info">${info.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+      ${reviews}`;
+  }
+  return `<button class="close" type="button" data-close aria-label="닫기">✕</button>
+    <img class="hero" src="${esc(g.img)}" alt="" width="460" height="215">
+    <h2>${esc(g.n)}</h2>
+    <div class="meta">
+      <span class="${rvClass(g.p)}"><b>${RV[g.rs] || '평가'}</b> ${g.p}%</span>
+      <span>리뷰 ${num(g.r)}</span><span>접속 ${num(g.ccu)}명</span><span>추천 점수 ${g.q.toFixed(0)}점</span>
+    </div>
+    <div class="price">${price}<a class="btn" href="${store}" target="_blank" rel="noopener">스팀 상점에서 보기</a></div>
+    ${more}`;
+}
+async function openDetail(id) {
+  const g = DATA.games.find((x) => x.id === id);
+  if (!g) return;
+  detailDlg.dataset.id = id;
+  detailDlg.innerHTML = detailHtml(g);
+  detailDlg.showModal();
+  detailDlg.scrollTop = 0;
+  let d = null;
+  try {
+    const r = await fetch(`data/g/${id}.json`);
+    if (r.ok) d = await r.json();
+  } catch {}
+  if (detailDlg.open && detailDlg.dataset.id === String(id)) detailDlg.innerHTML = detailHtml(g, d);
+}
+detailDlg.addEventListener('click', (e) => {
+  if (e.target === detailDlg || e.target.closest('[data-close]')) detailDlg.close(); // 바깥 영역·닫기 버튼
+});
 
 const dlg = $('#prefs');
 $('#prefsBtn').addEventListener('click', () => {

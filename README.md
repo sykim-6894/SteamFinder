@@ -8,6 +8,9 @@
 | --- | --- |
 | `scripts/update.mjs` | Steam 공식 API에서 데이터를 모아 점수를 계산 (Node 22+, 의존성 없음) |
 | `public/` | 배포되는 사이트 (`index.html`, `app.js`, `style.css`, `data/games.json`) |
+| `scripts/reviews.mjs` | 한국어 리뷰 요약·발췌 수집 (하루 300개씩, 14일마다 갱신) |
+| `scripts/weekly.mjs` | 매주 월요일 기준 주간 추천 글 생성 (`public/weekly/`) |
+| `public/data/g/` | 게임별 상세 정보 (소개·플레이 정보·리뷰 발췌) — 상세 창에서 필요할 때만 불러옴 |
 | `data/history.json` | 최근 15일 동시 접속자 기록 — 급상승 계산용 |
 | `.github/workflows/update.yml` | 매일 수집 → 커밋 → Pages 배포 |
 
