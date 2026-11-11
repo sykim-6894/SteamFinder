@@ -180,7 +180,51 @@ function viewRise() {
   return head(T.riseTitle, T.riseDesc) + note + grid(list, 'rise', 'rise', true);
 }
 
-const VIEWS = { home: viewHome, cat: viewCat, deal: viewDeal, rise: viewRise };
+// 기간 한정 무료: 리뷰 필터 밖의 게임·DLC도 있어서 전용 카드로 그린다
+function freeCard(f) {
+  const store = `https://store.steampowered.com/app/${f.id}`;
+  const left = f.e ? f.e - Date.now() / 1000 : 0;
+  const when = f.e ? new Date(f.e * 1000).toLocaleString(T.locale, { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const h = Math.floor(left / 3600);
+  const remain = !f.e ? '' : h < 1 ? T.ltSoon : T.ltLeft(Math.floor(h / 24), h % 24);
+  const badges = [`<span class="badge free">${f.k === 'keep' ? T.bKeep : T.bPlay}</span>`];
+  if (f.dlc) badges.push(`<span class="badge">${T.bDlc}</span>`);
+  if (f.x) badges.push(`<span class="badge">${esc(f.x)}</span>`);
+  let price;
+  if (f.k === 'keep') price = `<span class="off">-100%</span>${f.op ? `<s>${money(f.op)}</s>` : ''}<strong>${T.free}</strong>`;
+  else price = f.pr ? priceHtml({ pr: f.pr[0], op: f.pr[1], d: f.pr[2], de: f.pr[3] }, true) : '';
+  const inList = DATA.games.some((g) => g.id === f.id);
+  return `<article class="card"${inList ? ` data-open="${f.id}"` : ''}>
+  <a class="thumb" href="${store}" target="_blank" rel="noopener">
+    <img src="${esc(f.img)}" alt="" loading="lazy" width="460" height="215">
+  </a>
+  <a class="body" href="${store}" target="_blank" rel="noopener">
+    <div class="name">${esc(f.n)}</div>
+    <div class="meta">
+      ${f.r ? `<span class="${rvClass(f.p)}"><b>${T.rv[f.rs] || T.rvNone}</b> ${f.p}%</span><span>${T.reviews(num(f.r))}</span>` : ''}
+      ${f.dlc && f.pn ? `<span>${esc(T.ltNeeds(f.pn))}</span>` : ''}
+    </div>
+    <div class="badges">${badges.join('')}</div>
+    ${f.e ? `<div class="ends"><b>${T.ltUntil(when)}</b> · ${remain}</div>` : ''}
+    <div class="price">${price}</div>
+  </a>
+</article>`;
+}
+
+function viewFree() {
+  const now = Date.now() / 1000;
+  const live = (DATA.free || []).filter((f) => (!f.e || f.e > now) && !prefs.hidden.includes(f.id) &&
+    (!state.q || f.n.toLowerCase().includes(state.q) || f.n0.toLowerCase().includes(state.q)));
+  const order = (a, b) => (a.dlc || 0) - (b.dlc || 0) || b.r - a.r;
+  const section = (k, title, desc, none) => {
+    const list = live.filter((f) => f.k === k).sort(order);
+    return head(title, desc) + (list.length ? `<div class="grid">${list.map(freeCard).join('')}</div>` : `<p class="empty">${none}</p>`);
+  };
+  return `<div class="note">${T.ltDesc}</div>` +
+    section('keep', T.keepTitle, T.keepDesc, T.keepNone) + section('play', T.playTitle, T.playDesc, T.playNone);
+}
+
+const VIEWS = { home: viewHome, cat: viewCat, deal: viewDeal, rise: viewRise, free: viewFree };
 function render() {
   if (!DATA) return;
   document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.tab === state.tab));
@@ -341,11 +385,23 @@ Promise.all([getJSON('data/games.json'), LANG === 'ko' ? null : getJSON(`data/l1
       if (p) { g.pr = p[0]; if (p[2]) { g.op = p[1]; g.d = p[2]; g.de = p[3]; } }
       else g.pr = g.f ? 0 : null; // 그 지역 상점에서 팔지 않는 게임
     }
+    d.free = d.free || [];
+    for (const f of d.free) {
+      f.n0 = f.n;
+      const o = loc?.fr?.[f.id];
+      if (!loc) continue;
+      delete f.x;
+      if (o) { f.n = o.n || f.n; f.op = o.op; f.pr = o.pr; if (o.x) f.x = o.x; if (o.pn) f.pn = o.pn; }
+      else { f.op = 0; f.pr = null; }
+    }
     if (loc) d.tags = Object.assign({}, d.tags, loc.tags);
     DATA = d;
     const up = new Date(d.updated);
     DATA.daySeed = Math.floor(up.getTime() / 86400e3);
     $('#updated').textContent = T.updated(up.toLocaleString(T.locale, { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }), d.games.length.toLocaleString(T.locale));
+    // 탭에 진행 중인 무료 행사 수 표시
+    const nFree = d.free.filter((f) => !f.e || f.e * 1000 > Date.now()).length;
+    if (nFree) document.querySelector('#tabs [data-tab="free"]').insertAdjacentHTML('beforeend', ` <span class="count">${nFree}</span>`);
     route();
   })
   .catch((e) => { main.innerHTML = `<p class="empty">${T.loadFail(esc(e.message))}</p>`; });
