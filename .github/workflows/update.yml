@@ -30,12 +30,17 @@ jobs:
         if: github.event_name != 'push'
         run: node scripts/update.mjs
 
+      # 그 주(월요일 기준)의 글이 아직 없을 때만 새로 만든다
+      - name: Weekly post
+        if: github.event_name != 'push'
+        run: node scripts/weekly.mjs
+
       - name: Commit data
         if: github.event_name != 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/data/games.json data/history.json
+          git add public/data/games.json data/history.json public/weekly
           git diff --cached --quiet || git commit -m "data: $(TZ=Asia/Seoul date +%F) 갱신"
           git push
 

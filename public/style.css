@@ -103,3 +103,23 @@ dialog h2 { margin: 0 0 6px; }
   .price .until { display: none; }
   .sortbar { margin-left: 0; width: 100%; }
 }
+
+/* 주간 추천 글 */
+.post { max-width: 760px; padding-top: 8px; }
+.post h1 { font-size: 28px; letter-spacing: -.02em; margin: 28px 0 8px; line-height: 1.3; }
+.post h2 { font-size: 21px; margin: 44px 0 6px; padding-top: 22px; border-top: 1px solid var(--line); }
+.post h3 { font-size: 17.5px; margin: 28px 0 10px; }
+.post h3 a, .post p a:not(.btn) { color: var(--accent); }
+.post p { font-size: 16px; line-height: 1.75; margin: 10px 0; }
+.post img { width: 100%; max-width: 460px; height: auto; border-radius: 10px; display: block; }
+.post-meta { color: var(--muted); font-size: 14px !important; }
+.post-stats { color: var(--muted); font-size: 14px !important; }
+.post-stats .off { background: var(--deal); color: #10210a; font-weight: 800; padding: 1px 6px; border-radius: 5px; }
+.post-stats strong { color: var(--text); }
+.post-list { display: grid; gap: 14px; margin-top: 20px; }
+.post-item { display: flex; gap: 16px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.post-item:hover { border-color: #465264; }
+.post-item img { width: 200px; flex: none; }
+.post-item span { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.post-item small { color: var(--muted); font-size: 13.5px; }
+@media (max-width: 600px) { .post-item { flex-direction: column; align-items: stretch; } .post-item img { width: 100%; max-width: none; } }
