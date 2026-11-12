@@ -1,3 +1,8 @@
 node_modules/
 .claude/
 .DS_Store
+
+# 수집 데이터는 data 브랜치에 있다 (받기: README 참고)
+/data/
+/public/data/
+/public/weekly/

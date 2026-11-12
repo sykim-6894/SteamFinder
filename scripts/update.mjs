@@ -1,6 +1,6 @@
 // Steam 데이터를 수집해 public/data/games.json 을 만든다. (하루 1회 실행, API 키 불필요)
 // 사용: node scripts/update.mjs
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import { fetchReviews, playModes } from './reviews.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -11,6 +11,7 @@ const HISTORY = join(ROOT, 'data', 'history.json');
 const DETAIL_DIR = join(ROOT, 'public', 'data', 'g');
 const REVIEW_LIMIT = Number(process.env.REVIEW_LIMIT ?? 300); // 하루에 리뷰를 새로 받을 게임 수
 const REVIEW_MAX_AGE = 14; // 일
+const STALE_DAYS = 30; // 목록에서 빠진 게임의 상세 파일을 지우기까지
 const API = 'https://api.steampowered.com';
 export const CONTEXT = { language: 'koreana', country_code: 'KR' };
 // 추가 언어: 이름·소개·태그는 그 언어로, 가격은 그 지역 상점 기준
@@ -394,6 +395,19 @@ async function main() {
     if (json !== x.before) { await writeFile(x.file, json); written++; }
   }
   console.log(`   상세 파일 ${written}개 갱신`);
+
+  // 목록에서 빠진 지 STALE_DAYS 일이 지난 게임의 상세 파일은 지운다 (마지막으로 본 날은 history.seen 에 기록)
+  const seen = (history.seen ??= {});
+  for (const g of games) seen[g.id] = today;
+  const staleCut = kstDate(new Date(Date.now() - STALE_DAYS * 86400e3));
+  let pruned = 0;
+  for (const name of await readdir(DETAIL_DIR)) {
+    const id = name.replace(/\.json$/, '');
+    if (!seen[id]) seen[id] = today; // 기록이 없던 파일은 오늘부터 센다
+    if (seen[id] < staleCut) { await unlink(join(DETAIL_DIR, name)); delete seen[id]; pruned++; }
+  }
+  for (const id of Object.keys(seen)) if (seen[id] < staleCut) delete seen[id];
+  if (pruned) console.log(`   목록에서 빠진 지 오래된 상세 파일 ${pruned}개 삭제`);
 
   // 언어별 덮어쓰기 데이터: 태그 이름, 현지 게임 이름(다를 때만), 현지 가격
   for (const k of Object.keys(LOCALES)) {
