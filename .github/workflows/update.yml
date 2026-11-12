@@ -2,7 +2,8 @@ name: Update data & deploy
 
 on:
   schedule:
-    - cron: '0 21 * * *' # 매일 06:00 KST
+    - cron: '0 21 * * *' # 매일 06:00 KST — 전체 수집
+    - cron: '0 3,9,15 * * *' # 12:00 · 18:00 · 00:00 KST — 기간 한정 무료만
   workflow_dispatch:
   push:
     branches: [main]
@@ -16,6 +17,10 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  # 전체 수집: 매일 06시 스케줄과 수동 실행. 나머지 스케줄은 무료 목록만 (몇 초)
+  FULL: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '0 21 * * *' }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,15 +30,19 @@ jobs:
         with:
           node-version: 22
 
-      # 코드 push 때는 기존 데이터로 배포만, 스케줄/수동 실행 때만 새로 수집
+      # 코드 push 때는 기존 데이터로 배포만
       - name: Fetch Steam data
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && env.FULL == 'true'
         run: node scripts/update.mjs
 
       # 그 주(월요일 기준)의 글이 아직 없을 때만 새로 만든다
       - name: Weekly post
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && env.FULL == 'true'
         run: node scripts/weekly.mjs
+
+      - name: Free games
+        if: github.event_name != 'push'
+        run: node scripts/free.mjs
 
       - name: Commit data
         if: github.event_name != 'push'
@@ -41,7 +50,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add public/data data/history.json public/weekly
-          git diff --cached --quiet || git commit -m "data: $(TZ=Asia/Seoul date +%F) 갱신"
+          if [ "$FULL" = "true" ]; then msg="data: $(TZ=Asia/Seoul date +%F) 갱신"; else msg="data: 무료 목록 $(TZ=Asia/Seoul date '+%F %H시')"; fi
+          git diff --cached --quiet || git commit -m "$msg"
           git push
 
       - uses: actions/configure-pages@v5

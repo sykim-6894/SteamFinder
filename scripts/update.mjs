@@ -3,7 +3,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fetchReviews, playModes } from './reviews.mjs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'public', 'data', 'games.json');
@@ -12,9 +12,9 @@ const DETAIL_DIR = join(ROOT, 'public', 'data', 'g');
 const REVIEW_LIMIT = Number(process.env.REVIEW_LIMIT ?? 300); // 하루에 리뷰를 새로 받을 게임 수
 const REVIEW_MAX_AGE = 14; // 일
 const API = 'https://api.steampowered.com';
-const CONTEXT = { language: 'koreana', country_code: 'KR' };
+export const CONTEXT = { language: 'koreana', country_code: 'KR' };
 // 추가 언어: 이름·소개·태그는 그 언어로, 가격은 그 지역 상점 기준
-const LOCALES = {
+export const LOCALES = {
   en: { language: 'english', country_code: 'US' },
   zh: { language: 'schinese', country_code: 'CN' },
 };
@@ -31,7 +31,7 @@ const CATEGORY_TAGS = [
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function getJSON(url, tries = 5) {
+export async function getJSON(url, tries = 5) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
@@ -53,7 +53,7 @@ async function getJSON(url, tries = 5) {
 const svc = (iface, method, input) =>
   `${API}/${iface}/${method}/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`;
 
-async function pool(items, limit, fn) {
+export async function pool(items, limit, fn) {
   const out = new Array(items.length);
   let next = 0;
   await Promise.all(
@@ -110,7 +110,7 @@ async function specialsIds(pages = 6) {
 }
 
 // 지금 100% 할인 중인 항목 (게임·DLC 모두)
-async function freeKeepIds() {
+export async function freeKeepIds() {
   try {
     const j = await getJSON('https://store.steampowered.com/search/results/?json=1&specials=1&maxprice=free&cc=kr&count=100', 2);
     return (j?.items ?? []).map((it) => Number(/\/apps\/(\d+)\//.exec(it.logo ?? '')?.[1])).filter(Boolean);
@@ -121,7 +121,7 @@ async function freeKeepIds() {
 }
 
 // ---------- 2. 상세 정보 ----------
-async function fetchItems(appids, context = CONTEXT, light = false) {
+export async function fetchItems(appids, context = CONTEXT, light = false) {
   const chunks = [];
   for (let i = 0; i < appids.length; i += 150) chunks.push(appids.slice(i, i + 150));
   const res = await pool(chunks, 3, async (chunk) => {
@@ -168,7 +168,7 @@ function langLevels(it) {
 }
 
 // 그 지역 상점의 가격: [현재가, 정가, 할인율, 할인 종료] / 판매하지 않으면 null
-function priceOf(it) {
+export function priceOf(it) {
   const bp = it?.best_purchase_option;
   if (!bp) return null;
   const pr = Number(bp.final_price_in_cents) / 100;
@@ -177,7 +177,7 @@ function priceOf(it) {
   return [pr, bp.original_price_in_cents ? Number(bp.original_price_in_cents) / 100 : 0, d, bp.active_discounts?.[0]?.discount_end_date ?? 0];
 }
 
-const imgOf = (it) => {
+export const imgOf = (it) => {
   const header = it.assets?.header;
   return header && it.assets.asset_url_format
     ? ASSET_BASE + it.assets.asset_url_format.replace('${FILENAME}', header)
@@ -185,7 +185,7 @@ const imgOf = (it) => {
 };
 
 // 기간 한정 무료: 'keep' 지금 받으면 영구 소장(100% 할인), 'play' 기간 동안만 무료 플레이(무료 주말·체험)
-function freeKind(it, now) {
+export function freeKind(it, now) {
   const bp = it?.best_purchase_option;
   if (bp?.is_free_to_keep && bp.discount_pct === 100 && !(bp.free_to_keep_ends <= now)) return 'keep';
   if (it?.free_weekend?.end_time > now && !(it.free_weekend.start_time > now)) return 'play';
@@ -213,7 +213,7 @@ function qualityScore(pct, reviews, ccu) {
   return Math.round((0.5 * rating + 0.25 * popularity + 0.25 * activity) * 1000) / 10;
 }
 
-const kstDate = (d = new Date()) => new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+export const kstDate = (d = new Date()) => new Date(d.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
 
 async function main() {
   console.log('1/6 후보 수집…');
@@ -229,17 +229,15 @@ async function main() {
     queryIds(12, 500),
     queryIds(13, 500),
     specialsIds(),
-    freeKeepIds(),
   ]);
   const ranks = new Map((charts?.response?.ranks ?? []).map((r) => [r.appid, r]));
   const liveCcu = new Map((live?.response?.ranks ?? []).map((r) => [r.appid, r.concurrent_in_game]));
-  const candidates = [...new Set([...lists.flat(), ...ranks.keys(), ...liveCcu.keys()])]; // lists 마지막은 100% 할인 항목
+  const candidates = [...new Set([...lists.flat(), ...ranks.keys(), ...liveCcu.keys()])];
   console.log(`   후보 ${candidates.length}개`);
   if (candidates.length < 500) throw new Error('후보가 너무 적음 — API 응답 이상');
 
   console.log('2/6 상세 정보…');
-  const rawItems = await fetchItems(candidates);
-  const items = rawItems.filter((it) => {
+  const items = (await fetchItems(candidates)).filter((it) => {
     const rv = it.reviews?.summary_filtered;
     return (
       it.success === 1 &&
@@ -351,53 +349,6 @@ async function main() {
     locTags[k] = Object.fromEntries((tl?.response?.tags ?? []).filter((t) => used.has(t.tagid)).map((t) => [t.tagid, t.name]));
   }
 
-  // 기간 한정 무료: 리뷰 수 기준에 못 미치는 게임·DLC도 포함한다
-  const freeRaw = rawItems.filter(
-    (it) => it.success === 1 && it.visible && (it.type === 0 || it.type === 4) &&
-      !(it.content_descriptorids ?? []).includes(3) && freeKind(it, now),
-  );
-  // 같은 체험 행사가 여러 앱에 걸려 있으면 리뷰가 많은 쪽 하나만
-  const seenEvent = new Set();
-  const freeItems = freeRaw
-    .sort((a, b) => (b.reviews?.summary_filtered?.review_count ?? 0) - (a.reviews?.summary_filtered?.review_count ?? 0))
-    .filter((it) => {
-      const fw = it.free_weekend;
-      if (freeKind(it, now) !== 'play' || !fw.appid) return true;
-      const key = `${fw.appid}:${fw.end_time}`;
-      return seenEvent.has(key) ? false : (seenEvent.add(key), true);
-    });
-  const rawById = new Map(rawItems.map((it) => [it.appid, it]));
-  const parentIds = [...new Set(freeItems.map((it) => it.related_items?.parent_appid).filter((p) => p && !rawById.has(p)))];
-  for (const it of parentIds.length ? await fetchItems(parentIds, CONTEXT, true) : []) rawById.set(it.appid, it);
-  const freeLoc = {};
-  const freeAll = [...new Set(freeItems.flatMap((it) => [it.appid, it.related_items?.parent_appid]).filter(Boolean))];
-  for (const [k, ctx] of Object.entries(LOCALES)) {
-    freeLoc[k] = new Map((freeAll.length ? await fetchItems(freeAll, ctx, true) : []).map((it) => [it.appid, it]));
-  }
-  const origOf = (it) => {
-    const c = Number(it?.best_purchase_option?.original_price_in_cents ?? 0);
-    return c ? c / 100 : 0;
-  };
-  const free = freeItems.map((it) => {
-    const k = freeKind(it, now);
-    const rv = it.reviews?.summary_filtered ?? {};
-    const f = {
-      id: it.appid, k, n: it.name, img: imgOf(it),
-      e: k === 'keep' ? (it.best_purchase_option.free_to_keep_ends ?? 0) : it.free_weekend.end_time,
-      p: rv.percent_positive ?? 0, r: rv.review_count ?? 0, rs: rv.review_score ?? 0,
-    };
-    if (k === 'keep') f.op = Math.round(origOf(it));
-    else {
-      const p = priceOf(it);
-      if (p) f.pr = p.map(Math.round);
-      if (it.free_weekend.text) f.x = it.free_weekend.text;
-    }
-    const par = it.related_items?.parent_appid;
-    if (it.type === 4) { f.dlc = 1; if (par) { f.par = par; f.pn = rawById.get(par)?.name ?? ''; } }
-    return f;
-  });
-  console.log(`   기간 한정 무료: 소장 ${free.filter((f) => f.k === 'keep').length}개, 플레이 ${free.filter((f) => f.k === 'play').length}개`);
-
   await mkdir(DETAIL_DIR, { recursive: true });
   const byId = new Map(items.map((it) => [it.appid, it]));
   const details = await pool(games, 16, async (g) => {
@@ -453,18 +404,7 @@ async function main() {
       const p = priceOf(li);
       if (p) pr[g.id] = p;
     }
-    // 무료 행사: 현지 이름·정가·행사 문구
-    const fr = {};
-    for (const f of free) {
-      const li = freeLoc[k].get(f.id);
-      if (!li) continue;
-      const o = { n: li.name };
-      if (f.k === 'keep') o.op = origOf(li);
-      else { o.pr = priceOf(li); if (li.free_weekend?.text) o.x = li.free_weekend.text; }
-      if (f.par) o.pn = freeLoc[k].get(f.par)?.name ?? f.pn;
-      fr[f.id] = o;
-    }
-    await writeFile(join(dirname(OUT), `l10n.${k}.json`), JSON.stringify({ tags: locTags[k], n, pr, fr }));
+    await writeFile(join(dirname(OUT), `l10n.${k}.json`), JSON.stringify({ tags: locTags[k], n, pr }));
   }
 
   console.log('6/6 저장…');
@@ -477,7 +417,6 @@ async function main() {
       historyDays: Object.keys(history.days).length,
       tags,
       categories,
-      free,
       games,
     }),
   );
@@ -485,7 +424,10 @@ async function main() {
   console.log(`완료: 게임 ${games.length}개, 할인 ${games.filter((g) => g.d).length}개, 히스토리 ${Object.keys(history.days).length}일`);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// 직접 실행할 때만 수집 (free.mjs 가 함수만 가져다 쓸 때는 실행하지 않음)
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

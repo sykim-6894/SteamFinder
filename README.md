@@ -1,6 +1,6 @@
 # SteamFinder
 
-평가·동시 접속자·판매 규모를 종합해 스팀 게임을 추천하는 정적 웹페이지. GitHub Actions가 매일 06:00(KST)에 데이터를 갱신하고 GitHub Pages로 배포합니다. API 키·서버 불필요.
+평가·동시 접속자·판매 규모를 종합해 스팀 게임을 추천하는 정적 웹페이지. GitHub Actions가 매일 06:00(KST)에 데이터를 갱신하고(기간한정 무료 목록은 6시간마다) GitHub Pages로 배포합니다. API 키·서버 불필요.
 
 ## 구성
 
@@ -9,12 +9,13 @@
 | `scripts/update.mjs` | Steam 공식 API에서 데이터를 모아 점수를 계산 (Node 22+, 의존성 없음) |
 | `public/` | 배포되는 사이트 (`index.html`, `app.js`, `style.css`, `data/games.json`) |
 | `scripts/reviews.mjs` | 언어별(한국어·영어·중국어) 리뷰 요약·발췌 수집 (언어마다 하루 300개씩, 14일마다 갱신) |
+| `scripts/free.mjs` | 기간한정 무료(100% 할인·무료 주말) 목록만 수집 → `public/data/free.json` (6시간마다, 수 초) |
 | `public/i18n.js` | 화면 문구 3개 언어와 언어 선택 (`?lang=en` 처럼 주소로도 지정 가능) |
 | `public/data/l10n.*.json` | 영어·중국어용 게임 이름, 태그, 현지 가격(USD·CNY) |
 | `scripts/weekly.mjs` | 매주 월요일 기준 주간 추천 글 생성 (`public/weekly/`) |
 | `public/data/g/` | 게임별 상세 정보 (소개·플레이 정보·리뷰 발췌) — 상세 창에서 필요할 때만 불러옴 |
 | `data/history.json` | 최근 15일 동시 접속자 기록 — 급상승 계산용 |
-| `.github/workflows/update.yml` | 매일 수집 → 커밋 → Pages 배포 |
+| `.github/workflows/update.yml` | 06시 전체 수집 + 12·18·00시 무료 목록 → 커밋 → Pages 배포 |
 
 ## 추천 방식
 

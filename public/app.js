@@ -373,8 +373,15 @@ applyStatic();
 
 // ---------- 시작 ----------
 const getJSON = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
-Promise.all([getJSON('data/games.json'), LANG === 'ko' ? null : getJSON(`data/l10n.${LANG}.json`)])
-  .then(([d, loc]) => {
+Promise.all([
+  getJSON('data/games.json'),
+  LANG === 'ko' ? null : getJSON(`data/l10n.${LANG}.json`),
+  getJSON('data/free.json').catch(() => null), // 6시간마다 따로 갱신되는 무료 목록
+])
+  .then(([d, loc, fj]) => {
+    d.free = fj?.free || [];
+    d.freeAt = fj?.updated;
+    if (loc && fj) loc.fr = fj.fr?.[LANG];
     for (const g of d.games) {
       g.n0 = g.n;
       if (!loc) continue;
