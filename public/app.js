@@ -70,38 +70,41 @@ function priceHtml(g, withUntil) {
   if (isFree(g)) return `<strong>${T.free}</strong>`;
   if (g.pr == null) return `<span class="muted">${T.notSold}</span>`;
   if (!g.d) return `<strong>${money(g.pr)}</strong>`;
-  const until = withUntil && g.de ? `<span class="until">~${new Date(g.de * 1000).toLocaleDateString(T.locale, { month: 'numeric', day: 'numeric' })}</span>` : '';
+  const de = new Date(g.de * 1000);
+  const until = withUntil && g.de ? `<span class="until">${T.ltUntil(`${de.getMonth() + 1}/${de.getDate()}`)}</span>` : '';
   return `<span class="off">-${g.d}%</span>${g.op ? `<s>${money(g.op)}</s>` : ''}<strong>${money(g.pr)}</strong>${until}`;
 }
 
+const ICON_X = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const rankHtml = (i) => (i != null ? `<span class="rank">${String(i + 1).padStart(2, '0')}</span>` : '');
+
 function card(g, i, mode) {
-  const badges = [];
-  if (prefMatches(g)) badges.push(`<span class="badge pref">${T.bPref}</span>`);
+  const flags = [];
+  if (prefMatches(g)) flags.push(`<span>${T.bPref}</span>`);
   if (mode === 'rise') {
-    if (g.ne) badges.push(`<span class="badge hot">${T.bNewEntry}</span>`);
-    if (g.g1 >= 10) badges.push(`<span class="badge hot">${T.bDay(g.g1)}</span>`);
-    if (g.g7 >= 10) badges.push(`<span class="badge hot">${T.bWeek(g.g7)}</span>`);
-    if (g.ru > 0) badges.push(`<span class="badge hot">${T.bRank(g.ru)}</span>`);
-  } else if (g.tr >= 4) badges.push(`<span class="badge hot">${T.bRising}</span>`);
-  if (ageDays(g) <= 45) badges.push(`<span class="badge new">${T.bNew}</span>`);
-  for (const t of g.t.slice(0, 3)) if (DATA.tags[t]) badges.push(`<span class="badge">${esc(DATA.tags[t])}</span>`);
+    if (g.ne) flags.push(`<span class="up">${T.bNewEntry}</span>`);
+    if (g.g1 >= 10) flags.push(`<span class="up">${T.bDay(g.g1)}</span>`);
+    if (g.g7 >= 10) flags.push(`<span class="up">${T.bWeek(g.g7)}</span>`);
+    if (g.ru > 0) flags.push(`<span class="up">${T.bRank(g.ru)}</span>`);
+  } else if (g.tr >= 4) flags.push(`<span class="up">${T.bRising}</span>`);
+  if (ageDays(g) <= 45) flags.push(`<span>${T.bNew}</span>`);
+  const tags = g.t.slice(0, 3).filter((t) => DATA.tags[t]).map((t) => `<span>${esc(DATA.tags[t])}</span>`).join('');
 
   return `<article class="card" data-open="${g.id}">
   <a class="thumb" href="https://store.steampowered.com/app/${g.id}" target="_blank" rel="noopener">
     <img src="${esc(g.img)}" alt="" loading="lazy" width="460" height="215">
-    <span class="score" title="${T.tipScore}">${g.q.toFixed(0)}</span>
-    ${i != null ? `<span class="rank">${i + 1}</span>` : ''}
   </a>
-  <button class="hide" type="button" data-hide="${g.id}" title="${T.hide}" aria-label="${T.hide}: ${esc(g.n)}">✕</button>
+  <button class="hide" type="button" data-hide="${g.id}" title="${T.hide}" aria-label="${T.hide}: ${esc(g.n)}">${ICON_X}</button>
   <a class="body" href="https://store.steampowered.com/app/${g.id}" target="_blank" rel="noopener">
-    <div class="name">${esc(g.n)}</div>
+    <div class="title">${rankHtml(i)}<span class="name">${esc(g.n)}</span><span class="score" title="${T.tipScore}">${g.q.toFixed(0)}</span></div>
     <div class="meta">
       <span class="${rvClass(g.p)}"><b>${T.rv[g.rs] || T.rvNone}</b> ${g.p}%</span>
       <span title="${T.tipReviews}">${T.reviews(num(g.r))}</span>
       <span title="${T.tipPlayers}">${T.players(num(g.ccu))}</span>
       <span title="${T.tipSales}">${T.sales(num(g.r * 30))}</span>
     </div>
-    <div class="badges">${badges.join('')}</div>
+    ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}
+    ${tags ? `<div class="tags">${tags}</div>` : ''}
     <div class="price">${priceHtml(g, true)}</div>
   </a>
 </article>`;
@@ -187,9 +190,9 @@ function freeCard(f) {
   const when = f.e ? new Date(f.e * 1000).toLocaleString(T.locale, { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
   const h = Math.floor(left / 3600);
   const remain = !f.e ? '' : h < 1 ? T.ltSoon : T.ltLeft(Math.floor(h / 24), h % 24);
-  const badges = [`<span class="badge free">${f.k === 'keep' ? T.bKeep : T.bPlay}</span>`];
-  if (f.dlc) badges.push(`<span class="badge">${T.bDlc}</span>`);
-  if (f.x) badges.push(`<span class="badge">${esc(f.x)}</span>`);
+  const flags = [`<span class="up">${f.k === 'keep' ? T.bKeep : T.bPlay}</span>`];
+  if (f.dlc) flags.push(`<span>${T.bDlc}</span>`);
+  if (f.x) flags.push(`<span>${esc(f.x)}</span>`);
   let price;
   if (f.k === 'keep') price = `<span class="off">-100%</span>${f.op ? `<s>${money(f.op)}</s>` : ''}<strong>${T.free}</strong>`;
   else price = f.pr ? priceHtml({ pr: f.pr[0], op: f.pr[1], d: f.pr[2], de: f.pr[3] }, true) : '';
@@ -199,12 +202,12 @@ function freeCard(f) {
     <img src="${esc(f.img)}" alt="" loading="lazy" width="460" height="215">
   </a>
   <a class="body" href="${store}" target="_blank" rel="noopener">
-    <div class="name">${esc(f.n)}</div>
+    <div class="title"><span class="name">${esc(f.n)}</span></div>
     <div class="meta">
       ${f.r ? `<span class="${rvClass(f.p)}"><b>${T.rv[f.rs] || T.rvNone}</b> ${f.p}%</span><span>${T.reviews(num(f.r))}</span>` : ''}
       ${f.dlc && f.pn ? `<span>${esc(T.ltNeeds(f.pn))}</span>` : ''}
     </div>
-    <div class="badges">${badges.join('')}</div>
+    <div class="flags">${flags.join('')}</div>
     ${f.e ? `<div class="ends"><b>${T.ltUntil(when)}</b> · ${remain}</div>` : ''}
     <div class="price">${price}</div>
   </a>
@@ -293,7 +296,7 @@ function detailHtml(g, d) {
     if (r?.pt) info.push([T.dTime, T.dTimeVal(num(r.pt))]);
     if (d.dev) info.push([T.dDev, d.dev]);
     if (g.rel) info.push([T.dRel, new Date(g.rel * 1000).toLocaleDateString(T.locale, { year: 'numeric', month: 'long', day: 'numeric' })]);
-    const tags = g.t.map((t) => DATA.tags[t]).filter(Boolean).map((t) => `<span class="badge">${esc(t)}</span>`).join('');
+    const tags = g.t.map((t) => DATA.tags[t]).filter(Boolean).map((t) => `<span>${esc(t)}</span>`).join('');
     let reviews = '';
     if (r?.kn) {
       const quotes = r.rv
@@ -304,12 +307,12 @@ function detailHtml(g, d) {
         <p><a class="link" href="${store}#app_reviews_hash" target="_blank" rel="noopener">${T.dAllReviews}</a></p>`;
     } else if (r) reviews = `<h3>${T.dReviews}</h3><p class="muted">${T.dNoReviews}</p>`;
     more = `${desc ? `<p class="desc">${esc(desc)}</p>` : ''}
-      <div class="badges">${tags}</div>
+      <div class="tags">${tags}</div>
       <h3>${T.dInfo}</h3>
       <dl class="info">${info.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
       ${reviews}`;
   }
-  return `<button class="close" type="button" data-close aria-label="${T.close}">✕</button>
+  return `<button class="close" type="button" data-close aria-label="${T.close}">${ICON_X}</button>
     <img class="hero" src="${esc(g.img)}" alt="" width="460" height="215">
     <h2>${esc(g.n)}</h2>
     <div class="meta">
@@ -408,7 +411,7 @@ Promise.all([
     $('#updated').textContent = T.updated(up.toLocaleString(T.locale, { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }), d.games.length.toLocaleString(T.locale));
     // 탭에 진행 중인 무료 행사 수 표시
     const nFree = d.free.filter((f) => !f.e || f.e * 1000 > Date.now()).length;
-    if (nFree) document.querySelector('#tabs [data-tab="free"]').insertAdjacentHTML('beforeend', ` <span class="count">${nFree}</span>`);
+    if (nFree) document.querySelector('#tabs [data-tab="free"]').insertAdjacentHTML('beforeend', `<span class="count">${nFree}</span>`);
     route();
   })
   .catch((e) => { main.innerHTML = `<p class="empty">${T.loadFail(esc(e.message))}</p>`; });

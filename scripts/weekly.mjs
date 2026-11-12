@@ -77,7 +77,7 @@ function moreHtml(g, d) {
   let reviews = '';
   if (r?.kn) {
     const quotes = r.rv
-      .map((r) => `<blockquote class="${r.up ? 'up' : 'down'}"><span class="vote">${r.up ? '👍 추천' : '👎 비추천'}${r.h ? ` · ${num(r.h)}시간 플레이 후 작성` : ''}</span>${esc(r.t)}</blockquote>`)
+      .map((r) => `<blockquote class="${r.up ? 'up' : 'down'}"><span class="vote">${r.up ? '추천' : '비추천'}${r.h ? ` · ${num(r.h)}시간 플레이 후 작성` : ''}</span>${esc(r.t)}</blockquote>`)
       .join('\n');
     reviews = `<h4>한국어 리뷰 (${num(r.kn)}개 중 ${r.kp}% 긍정)</h4>\n${quotes}\n<p><a href="https://store.steampowered.com/app/${g.id}#app_reviews_hash" target="_blank" rel="noopener">스팀에서 리뷰 전체 보기 →</a></p>`;
   }
@@ -127,7 +127,7 @@ const page = ({ title, desc, image, body, back }) => `<!doctype html>
   <meta property="og:description" content="${esc(desc)}">
   ${image ? `<meta property="og:image" content="${esc(image)}">` : ''}
   <meta property="og:type" content="article">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23f0a73a'/><text x='16' y='23' font-family='sans-serif' font-size='20' font-weight='600' text-anchor='middle' fill='%231a1203'>S</text></svg>">
   <link rel="stylesheet" href="../style.css">
 </head>
 <body>
@@ -136,7 +136,7 @@ const page = ({ title, desc, image, body, back }) => `<!doctype html>
       <a class="brand" href="../"><span class="brand-mark">S</span>SteamFinder</a>
     </div>
     <nav class="wrap tabs">
-      <a href="../#home">오늘의 추천</a><a href="../#cat">카테고리</a><a href="../#deal">할인</a><a href="../#rise">급상승</a><a class="on" href="./">주간 추천</a>
+      <a href="../#home">오늘의 추천</a><a href="../#cat">카테고리</a><a href="../#deal">할인</a><a href="../#rise">급상승</a><a href="../#free">기간한정 무료</a><a class="on" href="./">주간 추천</a>
     </nav>
   </header>
   <main class="wrap post">

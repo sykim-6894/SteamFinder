@@ -44,7 +44,7 @@ const I18N = {
     dTime: '플레이 시간', dTimeVal: (h) => `리뷰 작성자 기준 보통 ${h}시간 정도 (중앙값)`, dDev: '개발', dRel: '출시', dInfo: '플레이 정보',
     dReviews: '한국어 리뷰', dReviewSum: (n, p) => `한국어 리뷰 ${n}개 중 <b>${p}% 긍정</b>`, dExcerpt: ' · 도움이 된 리뷰 일부 발췌', dNoReviews: '아직 한국어 리뷰가 없습니다.',
     dAllReviews: '스팀에서 리뷰 전체 보기 →', dStore: '스팀 상점에서 보기', dScore: (n) => `추천 점수 ${n}점`,
-    up: '👍 추천', down: '👎 비추천', hoursAt: (h) => ` · ${h}시간 플레이 후 작성`, close: '닫기',
+    up: '추천', down: '비추천', hoursAt: (h) => ` · ${h}시간 플레이 후 작성`, close: '닫기',
     modes: { single: '싱글 플레이', coopOnline: '온라인 협동', coopLocal: '로컬 협동', pvpOnline: '온라인 대전(PvP)', pvpLocal: '로컬 대전', mmo: 'MMO', coop: '협동', pvp: '대전(PvP)' },
   },
 
@@ -89,7 +89,7 @@ const I18N = {
     dTime: 'Playtime', dTimeVal: (h) => `About ${h} hours among reviewers (median)`, dDev: 'Developer', dRel: 'Released', dInfo: 'Play info',
     dReviews: 'English reviews', dReviewSum: (n, p) => `<b>${p}% positive</b> of ${n} English reviews`, dExcerpt: ' · excerpts from helpful reviews', dNoReviews: 'No English reviews yet.',
     dAllReviews: 'Read all reviews on Steam →', dStore: 'View on Steam', dScore: (n) => `Score ${n}`,
-    up: '👍 Recommended', down: '👎 Not recommended', hoursAt: (h) => ` · ${h} hrs at review time`, close: 'Close',
+    up: 'Recommended', down: 'Not recommended', hoursAt: (h) => ` · ${h} hrs at review time`, close: 'Close',
     modes: { single: 'Single-player', coopOnline: 'Online co-op', coopLocal: 'Local co-op', pvpOnline: 'Online PvP', pvpLocal: 'Local PvP', mmo: 'MMO', coop: 'Co-op', pvp: 'PvP' },
   },
 
@@ -134,7 +134,7 @@ const I18N = {
     dTime: '游戏时长', dTimeVal: (h) => `评测者通常游玩约 ${h} 小时（中位数）`, dDev: '开发商', dRel: '发售日', dInfo: '游玩信息',
     dReviews: '简体中文评测', dReviewSum: (n, p) => `${n} 篇简体中文评测中 <b>${p}% 好评</b>`, dExcerpt: ' · 节选自有价值的评测', dNoReviews: '暂无简体中文评测。',
     dAllReviews: '在 Steam 查看全部评测 →', dStore: '在 Steam 商店查看', dScore: (n) => `推荐分 ${n}`,
-    up: '👍 推荐', down: '👎 不推荐', hoursAt: (h) => ` · 评测时已游玩 ${h} 小时`, close: '关闭',
+    up: '推荐', down: '不推荐', hoursAt: (h) => ` · 评测时已游玩 ${h} 小时`, close: '关闭',
     modes: { single: '单人', coopOnline: '在线合作', coopLocal: '本地合作', pvpOnline: '在线对战 (PvP)', pvpLocal: '本地对战', mmo: '大型多人在线', coop: '合作', pvp: '对战 (PvP)' },
   },
 };
