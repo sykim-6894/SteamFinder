@@ -24,7 +24,7 @@
 `main` 에서는 이 경로들을 `.gitignore` 로 뺐습니다.
 
 `site` 브랜치에는 데이터까지 들어간 완성된 사이트(`public/` 내용)가 역시 커밋 하나로 올라갑니다.
-Cloudflare Pages는 이 브랜치를 그대로 배포합니다: 프로덕션 브랜치 `site`, 빌드 명령 없음, 빌드 출력 디렉터리 `/`.
+Cloudflare(Workers, `steamfinder.ksy2202.workers.dev`)는 이 브랜치를 그대로 배포합니다: 프로덕션 분기 `site`, 빌드 명령 없음, 배포 명령 `npx wrangler deploy`. 설정 파일 `wrangler.jsonc` 는 워크플로가 만들어 넣습니다.
 
 ## 추천 방식
 
