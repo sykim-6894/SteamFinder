@@ -67,6 +67,20 @@ jobs:
           git commit -q -m "$msg"
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
 
+      # Cloudflare Pages 용: 데이터까지 들어간 완성된 사이트(public/)를 site 브랜치에 커밋 하나로 덮어쓴다.
+      # Cloudflare 는 site 브랜치를 빌드 없이 그대로 배포한다.
+      - name: Publish site branch
+        run: |
+          tmp=$(mktemp -d)
+          cp -r public/. "$tmp"
+          cd "$tmp"
+          git init -q -b site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "site: $(TZ=Asia/Seoul date '+%F %H:%M') (${GITHUB_SHA::7})"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" site
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

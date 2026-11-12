@@ -15,13 +15,16 @@
 | `scripts/weekly.mjs` | 매주 월요일 기준 주간 추천 글 생성 (`public/weekly/`) |
 | `public/data/g/` | 게임별 상세 정보 (소개·플레이 정보·리뷰 발췌) — 상세 창에서 필요할 때만 불러옴. 목록에서 빠진 지 30일 지나면 삭제 |
 | `data/history.json` | 최근 15일 동시 접속자 기록(급상승 계산용), 게임별 마지막으로 목록에 있던 날 |
-| `.github/workflows/update.yml` | 06시 전체 수집 + 12·18·00시 무료 목록 → `data` 브랜치 저장 → Pages 배포 |
+| `.github/workflows/update.yml` | 06시 전체 수집 + 12·18·00시 무료 목록 → `data` 브랜치 저장 → GitHub Pages 배포 + `site` 브랜치(Cloudflare Pages용) 갱신 |
 
 ## 데이터 보관
 
 코드는 `main`, 수집 데이터(`data/`, `public/data/`, `public/weekly/`)는 `data` 브랜치에 있습니다.
 `data` 브랜치는 매번 커밋 하나로 덮어써서, 매일 갱신해도 저장소가 커지지 않습니다.
 `main` 에서는 이 경로들을 `.gitignore` 로 뺐습니다.
+
+`site` 브랜치에는 데이터까지 들어간 완성된 사이트(`public/` 내용)가 역시 커밋 하나로 올라갑니다.
+Cloudflare Pages는 이 브랜치를 그대로 배포합니다: 프로덕션 브랜치 `site`, 빌드 명령 없음, 빌드 출력 디렉터리 `/`.
 
 ## 추천 방식
 
