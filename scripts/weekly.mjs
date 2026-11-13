@@ -61,7 +61,7 @@ function blurb(g, tags, now) {
   return s.join(' ').replace(/\.\./g, '.');
 }
 
-// 접어 두는 상세: 게임 소개, 플레이 정보, 한국어 리뷰 발췌
+// 접어 두는 상세: 게임 소개, 플레이 정보, 한국어 리뷰 요약 수치
 const MODE_KO = { single: '싱글 플레이', coopOnline: '온라인 협동', coopLocal: '로컬 협동', pvpOnline: '온라인 대전(PvP)', pvpLocal: '로컬 대전', mmo: 'MMO', coop: '협동', pvp: '대전(PvP)' };
 function moreHtml(g, d) {
   if (!d) return '';
@@ -74,13 +74,8 @@ function moreHtml(g, d) {
   if (d.deck > 1) info.push(['휴대 기기', d.deck === 3 ? '스팀덱 완벽 호환' : '스팀덱 플레이 가능']);
   if (r?.pt) info.push(['플레이 시간', `리뷰 작성자 기준 보통 ${num(r.pt)}시간 정도`]);
   if (d.dev) info.push(['개발', d.dev]);
-  let reviews = '';
-  if (r?.kn) {
-    const quotes = r.rv
-      .map((r) => `<blockquote class="${r.up ? 'up' : 'down'}"><span class="vote">${r.up ? '추천' : '비추천'}${r.h ? ` · ${num(r.h)}시간 플레이 후 작성` : ''}</span>${esc(r.t)}</blockquote>`)
-      .join('\n');
-    reviews = `<h4>한국어 리뷰 (${num(r.kn)}개 중 ${r.kp}% 긍정)</h4>\n${quotes}\n<p><a href="https://store.steampowered.com/app/${g.id}#app_reviews_hash" target="_blank" rel="noopener">스팀에서 리뷰 전체 보기 →</a></p>`;
-  }
+  if (r?.kn) info.push(['한국어 리뷰', `${num(r.kn)}개 중 ${r.kp}% 긍정`]);
+  const reviews = `<p><a href="https://store.steampowered.com/app/${g.id}#app_reviews_hash" target="_blank" rel="noopener">스팀에서 리뷰 보기 →</a></p>`;
   return `  <details>
     <summary>자세히 보기 — 소개 · 플레이 정보 · 리뷰</summary>
     ${desc ? `<p>${esc(desc)}</p>` : ''}
@@ -150,22 +145,6 @@ ${back || ''}
 </html>
 `;
 
-const COPY_SCRIPT = `<script>
-document.getElementById('copyPost').addEventListener('click', async (e) => {
-  const el = document.getElementById('article').cloneNode(true);
-  el.querySelectorAll('a').forEach((a) => { a.href = a.href; });
-  el.querySelectorAll('[data-nocopy], summary').forEach((n) => n.remove());
-  el.querySelectorAll('details').forEach((d) => d.replaceWith(...d.childNodes)); // 접힌 내용도 펼쳐서 복사
-  try {
-    await navigator.clipboard.write([new ClipboardItem({
-      'text/html': new Blob([el.innerHTML], { type: 'text/html' }),
-      'text/plain': new Blob([document.getElementById('article').innerText], { type: 'text/plain' }),
-    })]);
-    e.target.textContent = '복사됨! 블로그 글쓰기 창에 붙여넣으세요';
-  } catch { e.target.textContent = '복사 실패 — 본문을 직접 드래그해 복사하세요'; }
-});
-</script>`;
-
 async function main() {
   const data = JSON.parse(await readFile(join(ROOT, 'public', 'data', 'games.json'), 'utf8'));
   let posts = [];
@@ -216,7 +195,7 @@ async function main() {
 
   const body = `    <article id="article">
       <h1>${esc(title)}</h1>
-      <p class="post-meta" data-nocopy>${md(Date.now() / 1000)} 작성 · <button class="btn ghost" id="copyPost" type="button">블로그용으로 복사</button></p>
+      <p class="post-meta">${md(Date.now() / 1000)} 작성</p>
       <p>이번 주에 할 만한 스팀 게임을 골랐습니다. 긍정 평가 비율, 동시 접속자, 판매 규모를 종합한 점수에 할인과 상승세를 반영했고, 장르가 겹치지 않게 섞었습니다. 게임 제목을 누르면 스팀 상점 페이지로 이동합니다.</p>
       <h2>이번 주 추천 TOP 10</h2>
 ${top.map((g, i) => gameHtml(g, i, tags, now)).join('\n')}
@@ -225,10 +204,10 @@ ${rising.length ? `      <h2>이번 주 급상승</h2>\n${rising.map((g) => game
 ${gems.length ? `      <h2>숨은 명작</h2>\n      <p>덜 알려졌지만 평가가 아주 좋은 게임들입니다.</p>\n${gems.map((g) => gameHtml(g, null, tags, now)).join('\n')}` : ''}
       <p>매일 갱신되는 전체 추천 목록은 <a href="../">SteamFinder</a>에서 볼 수 있습니다.</p>
     </article>
-    <p data-nocopy><a class="btn ghost" href="./">지난 주간 추천 보기</a></p>`;
+    <p><a class="btn ghost" href="./">지난 주간 추천 보기</a></p>`;
 
   await mkdir(DIR, { recursive: true });
-  await writeFile(join(DIR, `${date}.html`), page({ title, desc, image: top[0]?.img, body, back: COPY_SCRIPT }));
+  await writeFile(join(DIR, `${date}.html`), page({ title, desc, image: top[0]?.img, body }));
 
   posts.unshift({ date, title, desc, img: top[0]?.img, ids: [...taken] });
   await writeFile(POSTS, JSON.stringify(posts, null, 1));

@@ -298,14 +298,10 @@ function detailHtml(g, d) {
     if (g.rel) info.push([T.dRel, new Date(g.rel * 1000).toLocaleDateString(T.locale, { year: 'numeric', month: 'long', day: 'numeric' })]);
     const tags = g.t.map((t) => DATA.tags[t]).filter(Boolean).map((t) => `<span>${esc(t)}</span>`).join('');
     let reviews = '';
-    if (r?.kn) {
-      const quotes = r.rv
-        .map((x) => `<blockquote class="${x.up ? 'up' : 'down'}"><span class="vote">${x.up ? T.up : T.down}${x.h ? T.hoursAt(num(x.h)) : ''}</span>${esc(x.t)}</blockquote>`)
-        .join('');
-      reviews = `<h3>${T.dReviews}</h3>
-        <p class="muted ${rvClass(r.kp)}-b">${T.dReviewSum(num(r.kn), r.kp)}${quotes ? T.dExcerpt : ''}</p>${quotes}
+    if (r?.kn) reviews = `<h3>${T.dReviews}</h3>
+        <p class="muted ${rvClass(r.kp)}-b">${T.dReviewSum(num(r.kn), r.kp)}</p>
         <p><a class="link" href="${store}#app_reviews_hash" target="_blank" rel="noopener">${T.dAllReviews}</a></p>`;
-    } else if (r) reviews = `<h3>${T.dReviews}</h3><p class="muted">${T.dNoReviews}</p>`;
+    else if (r) reviews = `<h3>${T.dReviews}</h3><p class="muted">${T.dNoReviews}</p>`;
     more = `${desc ? `<p class="desc">${esc(desc)}</p>` : ''}
       <div class="tags">${tags}</div>
       <h3>${T.dInfo}</h3>

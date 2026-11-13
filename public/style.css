@@ -128,10 +128,6 @@ dialog h2 { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
 .info { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; font-size: 14px; }
 .info dt { color: var(--muted); }
 .info dd { margin: 0; }
-blockquote { margin: 12px 0; padding: 12px 16px; background: var(--panel2); border-radius: 8px; font-size: 14px; line-height: 1.65; color: var(--text2); }
-blockquote .vote { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-blockquote .vote::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
-blockquote.down .vote::before { background: var(--bad); }
 .link { color: var(--text2); font-size: 14px; text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 3px; }
 .link:hover { color: var(--text); }
 

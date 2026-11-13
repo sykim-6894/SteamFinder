@@ -370,6 +370,7 @@ async function main() {
     for (const k of Object.keys(LOCALES)) d.d[k] = locItems[k].get(g.id)?.basic_info?.short_description ?? '';
     // 이전 파일의 리뷰는 그대로 이어 쓴다 (예전 형식: r 이 한국어 리뷰 하나)
     if (old?.r) d.r = 'at' in old.r ? { ko: old.r } : old.r;
+    for (const r of Object.values(d.r)) delete r.rv; // 리뷰 본문은 더 이상 보관하지 않는다
     return { g, file, d, before: old ? JSON.stringify(old) : '' };
   });
 
