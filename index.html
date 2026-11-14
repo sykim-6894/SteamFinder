@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SteamFinder — Steam game recommendations</title>
+  <meta name="description" content="Daily Steam game recommendations combining ratings, concurrent players and sales. 스팀 게임 추천 · Steam 游戏推荐.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23f0a73a'/><text x='16' y='23' font-family='sans-serif' font-size='20' font-weight='600' text-anchor='middle' fill='%231a1203'>S</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="#home"><span class="brand-mark">S</span>SteamFinder</a>
+      <span class="updated" id="updated"></span>
+      <select id="lang" class="lang" aria-label="Language"></select>
+      <button class="btn ghost" id="prefsBtn" type="button" data-i18n="prefsBtn"></button>
+    </div>
+    <nav class="wrap tabs" id="tabs">
+      <a href="#home" data-tab="home" data-i18n="tabHome"></a>
+      <a href="#cat" data-tab="cat" data-i18n="tabCat"></a>
+      <a href="#deal" data-tab="deal" data-i18n="tabDeal"></a>
+      <a href="#rise" data-tab="rise" data-i18n="tabRise"></a>
+      <a href="#free" data-tab="free" data-i18n="tabFree"></a>
+      <a href="weekly/" id="weeklyLink" data-i18n="tabWeekly" hidden></a>
+    </nav>
+  </header>
+
+  <div class="wrap filters">
+    <input id="search" type="search" autocomplete="off">
+    <select id="price"></select>
+    <select id="minPct"></select>
+    <label class="check"><input id="langOnly" type="checkbox"> <span data-i18n="langOnly"></span></label>
+  </div>
+
+  <main class="wrap" id="main"><p class="empty" data-i18n="loading"></p></main>
+
+  <footer class="wrap foot">
+    <p data-i18n="foot1"></p>
+    <p data-i18n="foot2"></p>
+  </footer>
+
+  <dialog id="prefs">
+    <form method="dialog">
+      <h2 data-i18n="prefsTitle"></h2>
+      <p class="muted" data-i18n="prefsDesc"></p>
+      <div class="chips" id="prefTags"></div>
+      <div class="dialog-row">
+        <button class="btn ghost" id="resetHidden" type="button"></button>
+        <button class="btn" value="ok" data-i18n="done"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="detail"></dialog>
+
+  <script src="i18n.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
