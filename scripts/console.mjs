@@ -11,7 +11,7 @@ const KEY = process.env.OPENCRITIC_KEY;
 const HOST = 'opencritic-api.p.rapidapi.com';
 const IMG = 'https://img.opencritic.com/';
 const DAYS = 120; // 이 기간 안에 발매된 게임만 보여준다
-const MAX_PAGES = 8; // 플랫폼마다 목록 최대 페이지 수 (한 페이지 약 20개)
+const MAX_PAGES = 14; // 플랫폼마다 목록 최대 페이지 수 (한 페이지 20개, 스위치2는 120일에 160개 넘음)
 const DETAIL_BUDGET = 100; // 하루에 상세 정보를 새로 받을 게임 수
 const DETAIL_MAX_AGE = 3; // 발매 4주 안 된 게임은 며칠마다 점수·추천 비율을 다시 받는다
 
