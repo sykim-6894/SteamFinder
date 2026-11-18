@@ -227,10 +227,66 @@ function viewFree() {
     section('keep', T.keepTitle, T.keepDesc, T.keepNone) + section('play', T.playTitle, T.playDesc, T.playNone);
 }
 
-const VIEWS = { home: viewHome, cat: viewCat, deal: viewDeal, rise: viewRise, free: viewFree };
+// ---------- 콘솔(PS5 · 스위치): OpenCritic 평론 점수, 탭을 열 때만 불러온다 ----------
+let CONSOLE; // undefined 아직 안 불러옴, 'loading', null 실패·없음
+const SHORT_NAMES = { 'PlayStation 5': 'PS5', 'Nintendo Switch': 'Switch', 'Nintendo Switch 2': 'Switch 2' };
+const TIER_CLASS = { Mighty: 'rv-good', Strong: 'rv-good', Fair: 'rv-mid', Weak: 'rv-bad' };
+const STORE = {
+  ps5: { ko: 'https://store.playstation.com/ko-kr/search/', en: 'https://store.playstation.com/en-us/search/', zh: 'https://store.playstation.com/zh-hans-hk/search/' },
+  switch: { ko: 'https://store.nintendo.co.kr/catalogsearch/result/?q=', en: 'https://www.nintendo.com/us/search/#q=', zh: 'https://www.nintendo.com/us/search/#q=' },
+};
+function loadConsole() {
+  if (CONSOLE !== undefined) return;
+  CONSOLE = 'loading';
+  fetch('data/console.json').then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => {
+    CONSOLE = d;
+    if (state.tab === 'ps5' || state.tab === 'switch') render();
+  });
+}
+function consoleCard(g, tab, rel) {
+  const names = CONSOLE.platforms[tab].filter((p) => g.p[p.short]).map((p) => SHORT_NAMES[p.name] || p.name);
+  const d = new Date(rel + 'T00:00:00');
+  const store = STORE[tab][LANG] + encodeURIComponent(g.n);
+  const score = g.s
+    ? `<span class="${TIER_CLASS[g.tier] || ''}"><b>${T.tiers[g.tier] || g.tier || ''}</b></span>${g.pc != null ? `<span>${T.ocPct(g.pc)}</span>` : ''}${g.nr ? `<span>${T.ocReviews(num(g.nr))}</span>` : ''}`
+    : `<span>${T.ocNoScore}</span>`;
+  return `<article class="card console">
+  <a class="thumb" href="${esc(g.url)}" target="_blank" rel="noopener">${g.img ? `<img src="${esc(g.img)}" alt="" loading="lazy" width="460" height="215">` : ''}</a>
+  <div class="body">
+    <div class="title"><a class="name" href="${esc(g.url)}" target="_blank" rel="noopener">${esc(g.n)}</a>${g.s ? `<span class="score" title="${T.ocTip}">${g.s}</span>` : ''}</div>
+    <div class="meta">${score}</div>
+    <div class="flags"><span>${T.ocReleased(d.toLocaleDateString(T.locale, { year: 'numeric', month: 'short', day: 'numeric' }))}</span><span>${names.join(' · ')}</span></div>
+    ${g.pub ? `<div class="tags"><span>${esc(g.pub)}</span></div>` : ''}
+    <div class="price"><a class="link" href="${store}" target="_blank" rel="noopener">${tab === 'ps5' ? T.ocPsStore : T.ocEshop}</a></div>
+  </div>
+</article>`;
+}
+function viewConsole(tab) {
+  loadConsole();
+  const title = tab === 'ps5' ? T.ocPs5Title : T.ocSwitchTitle;
+  if (CONSOLE === 'loading') return head(title, '') + `<p class="empty">${T.loading}</p>`;
+  if (!CONSOLE || !CONSOLE.platforms?.[tab]) return head(title, '') + `<p class="empty">${T.ocNone}</p>`;
+  const shorts = CONSOLE.platforms[tab].map((p) => p.short);
+  const relOf = (g) => shorts.map((s) => g.p[s]).filter(Boolean).sort()[0];
+  let list = Object.values(CONSOLE.games).filter((g) => g.tab?.includes(tab))
+    .filter((g) => !state.q || g.n.toLowerCase().includes(state.q));
+  if (state.scoredOnly) list = list.filter((g) => g.s);
+  const key = `c${tab}`;
+  const byNew = (a, b) => relOf(b).localeCompare(relOf(a)) || (b.s || 0) - (a.s || 0);
+  list.sort(state.sort[key] === 'score' ? (a, b) => (b.s || 0) - (a.s || 0) || byNew(a, b) : byNew);
+  const limit = state.limit[key] || PAGE;
+  const more = list.length > limit ? `<button class="btn ghost more" type="button" data-more="${key}">${T.more(Math.min(limit, list.length), list.length)}</button>` : '';
+  const chips = `<div class="chips" style="margin-bottom:16px"><button class="chip${state.scoredOnly ? ' on' : ''}" type="button" data-scored>${T.ocScoredOnly}</button></div>`;
+  return head(title, T.ocDesc(CONSOLE.days), sortSel(key, [['new', T.sNew], ['score', T.ocSortScore]])) + chips +
+    (list.length ? `<div class="grid">${list.slice(0, limit).map((g) => consoleCard(g, tab, relOf(g))).join('')}</div>${more}` : `<p class="empty">${T.empty}</p>`) +
+    `<p class="credit">${T.ocCredit}</p>`;
+}
+
+const VIEWS = { home: viewHome, cat: viewCat, deal: viewDeal, rise: viewRise, free: viewFree, ps5: () => viewConsole('ps5'), switch: () => viewConsole('switch') };
 function render() {
   if (!DATA) return;
   document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.tab === state.tab));
+  document.body.classList.toggle('console-tab', state.tab === 'ps5' || state.tab === 'switch');
   main.innerHTML = VIEWS[state.tab]();
 }
 
@@ -245,7 +301,7 @@ function route() {
 window.addEventListener('hashchange', route);
 
 main.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-hide],[data-more],[data-cat],[data-disc]');
+  const el = e.target.closest('[data-hide],[data-more],[data-cat],[data-disc],[data-scored]');
   if (!el) {
     // 카드를 누르면 상세 창 (Ctrl·가운데 클릭은 그대로 스팀 상점으로)
     const c = e.target.closest('[data-open]');
@@ -256,6 +312,7 @@ main.addEventListener('click', (e) => {
   else if (el.dataset.more) state.limit[el.dataset.more] = (state.limit[el.dataset.more] || PAGE) + PAGE * 2;
   else if (el.dataset.cat) { state.cat = Number(el.dataset.cat); state.limit.cat = PAGE; }
   else if (el.dataset.disc) { state.minDisc = Number(el.dataset.disc); state.limit.deal = PAGE; }
+  else if ('scored' in el.dataset) state.scoredOnly = !state.scoredOnly;
   render();
 });
 main.addEventListener('change', (e) => {

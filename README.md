@@ -9,6 +9,7 @@
 | `scripts/update.mjs` | Steam 공식 API에서 데이터를 모아 점수를 계산 (Node 22+, 의존성 없음) |
 | `public/` | 배포되는 사이트 (`index.html`, `app.js`, `style.css`, `data/games.json`) |
 | `scripts/reviews.mjs` | 언어별(한국어·영어·중국어) 리뷰 요약·발췌 수집 (언어마다 하루 300개씩, 14일마다 갱신) |
+| `scripts/console.mjs` | PS5·스위치 최근 발매작과 평론 점수 (OpenCritic API, RapidAPI 키를 저장소 Secrets `OPENCRITIC_KEY` 에 넣어야 동작) → `public/data/console.json` |
 | `scripts/free.mjs` | 기간한정 무료(100% 할인·무료 주말) 목록만 수집 → `public/data/free.json` (6시간마다, 수 초) |
 | `public/i18n.js` | 화면 문구 3개 언어와 언어 선택 (`?lang=en` 처럼 주소로도 지정 가능) |
 | `public/data/l10n.*.json` | 영어·중국어용 게임 이름, 태그, 현지 가격(USD·CNY) |

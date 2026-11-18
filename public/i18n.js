@@ -5,6 +5,12 @@ const LANG_NAMES = { ko: '한국어', en: 'English', zh: '简体中文' };
 const I18N = {
   ko: {
     locale: 'ko-KR',
+    tabSwitch: '스위치', ocPs5Title: 'PS5 최근 발매작', ocSwitchTitle: '스위치 최근 발매작',
+    ocDesc: (d) => `최근 ${d}일 안에 발매된 게임 · 평론 점수는 OpenCritic 상위 평론가 평균`, ocNone: '콘솔 목록을 아직 불러오지 못했어요.',
+    ocNoScore: '평론 점수 집계 전', ocPct: (n) => `평론가 ${n}% 추천`, ocReviews: (n) => `평론 ${n}개`, ocTip: 'OpenCritic 상위 평론가 평균 점수',
+    ocReleased: (d) => `${d} 발매`, ocPsStore: 'PS 스토어에서 가격 보기 →', ocEshop: '닌텐도 e숍에서 가격 보기 →',
+    ocScoredOnly: '평론 점수 있는 게임만', ocSortScore: '평론 점수순', ocCredit: '평론 점수·목록 출처: <a class="link" href="https://opencritic.com" target="_blank" rel="noopener">OpenCritic</a>',
+    tiers: { Mighty: '압도적 호평', Strong: '호평', Fair: '무난', Weak: '혹평' },
     title: 'SteamFinder — 오늘 뭐 하지? 스팀 게임 추천',
     tabHome: '오늘의 추천', tabCat: '카테고리', tabDeal: '할인', tabRise: '급상승', tabFree: '기간한정 무료', tabWeekly: '주간 추천',
     prefsBtn: '취향 설정', searchPh: '게임 이름 검색',
@@ -50,6 +56,12 @@ const I18N = {
 
   en: {
     locale: 'en-US',
+    tabSwitch: 'Switch', ocPs5Title: 'New on PS5', ocSwitchTitle: 'New on Switch',
+    ocDesc: (d) => `Released in the last ${d} days · critic score is the OpenCritic top critic average`, ocNone: 'Could not load the console list yet.',
+    ocNoScore: 'No critic score yet', ocPct: (n) => `${n}% of critics recommend`, ocReviews: (n) => `${n} reviews`, ocTip: 'OpenCritic top critic average',
+    ocReleased: (d) => `Released ${d}`, ocPsStore: 'Price on PlayStation Store →', ocEshop: 'Price on Nintendo eShop →',
+    ocScoredOnly: 'With critic score only', ocSortScore: 'Critic score', ocCredit: 'Critic scores and list from <a class="link" href="https://opencritic.com" target="_blank" rel="noopener">OpenCritic</a>',
+    tiers: { Mighty: 'Mighty', Strong: 'Strong', Fair: 'Fair', Weak: 'Weak' },
     title: 'SteamFinder — Steam game recommendations, updated daily',
     tabHome: "Today's Picks", tabCat: 'Categories', tabDeal: 'Deals', tabRise: 'Trending', tabFree: 'Free for Now', tabWeekly: 'Weekly',
     prefsBtn: 'My tastes', searchPh: 'Search games',
@@ -95,6 +107,12 @@ const I18N = {
 
   zh: {
     locale: 'zh-CN',
+    tabSwitch: 'Switch', ocPs5Title: 'PS5 新发售', ocSwitchTitle: 'Switch 新发售',
+    ocDesc: (d) => `近 ${d} 天内发售的游戏 · 媒体评分为 OpenCritic 顶级媒体平均分`, ocNone: '暂时无法加载主机游戏列表。',
+    ocNoScore: '媒体评分尚未汇总', ocPct: (n) => `${n}% 媒体推荐`, ocReviews: (n) => `媒体评测 ${n} 篇`, ocTip: 'OpenCritic 顶级媒体平均分',
+    ocReleased: (d) => `${d} 发售`, ocPsStore: '在 PlayStation Store 查看价格 →', ocEshop: '在 Nintendo eShop 查看价格 →',
+    ocScoredOnly: '仅显示有媒体评分', ocSortScore: '媒体评分', ocCredit: '媒体评分与列表来源：<a class="link" href="https://opencritic.com" target="_blank" rel="noopener">OpenCritic</a>',
+    tiers: { Mighty: '极佳', Strong: '好评', Fair: '一般', Weak: '差评' },
     title: 'SteamFinder — 每日更新的 Steam 游戏推荐',
     tabHome: '今日推荐', tabCat: '分类', tabDeal: '特惠', tabRise: '热度飙升', tabFree: '限时免费', tabWeekly: '每周推荐',
     prefsBtn: '偏好设置', searchPh: '搜索游戏名称',

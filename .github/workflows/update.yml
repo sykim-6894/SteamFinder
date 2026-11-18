@@ -44,6 +44,13 @@ jobs:
         if: github.event_name != 'push' && env.FULL == 'true'
         run: node scripts/update.mjs
 
+      # PS5 · 스위치 최근 발매작 (OpenCritic, RapidAPI 키는 저장소 Secrets 의 OPENCRITIC_KEY). 실패해도 계속
+      - name: Console games
+        if: github.event_name != 'push' && env.FULL == 'true'
+        env:
+          OPENCRITIC_KEY: ${{ secrets.OPENCRITIC_KEY }}
+        run: node scripts/console.mjs
+
       # 그 주(월요일 기준)의 글이 아직 없을 때만 새로 만든다
       - name: Weekly post
         if: github.event_name != 'push' && env.FULL == 'true'
