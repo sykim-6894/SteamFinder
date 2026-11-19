@@ -23,6 +23,7 @@ const TABS = {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let calls = 0;
+let left = null; // 오늘 남은 요청 수 (RapidAPI 응답 헤더, 하루 한도는 UTC 자정에 초기화)
 async function api(path) {
   for (let i = 0; i < 3; i++) {
     calls++;
@@ -30,6 +31,7 @@ async function api(path) {
       headers: { 'x-rapidapi-key': KEY, 'x-rapidapi-host': HOST },
       signal: AbortSignal.timeout(30000),
     });
+    left = res.headers.get('x-ratelimit-requests-remaining') ?? left;
     if (res.status === 429) { await sleep(3000 * (i + 1)); continue; }
     if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
     await sleep(300); // 초당 4회 제한
@@ -99,6 +101,7 @@ async function main() {
     .filter(({ o, rel }) => !o?.at || (rel >= recentCut && o.at < staleCut))
     .sort((a, b) => (a.o?.at ? 1 : 0) - (b.o?.at ? 1 : 0) || b.rel.localeCompare(a.rel))
     .slice(0, DETAIL_BUDGET);
+  let done = 0;
   for (const { id } of need) {
     try {
       const d = await api(`/game/${id}`);
@@ -112,6 +115,7 @@ async function main() {
       if (im) x.img = im;
       const co = (d.Companies ?? []).filter((c) => /publisher/i.test(c.type ?? '')).map((c) => c.name);
       if (co.length) x.pub = co.slice(0, 2).join(', ');
+      done++;
     } catch (e) {
       console.warn(`상세 실패 ${id}: ${e.message}`);
       if (/429/.test(e.message)) break;
@@ -125,7 +129,7 @@ async function main() {
   }
 
   await writeFile(OUT, JSON.stringify({ updated: new Date().toISOString(), days: DAYS, platforms: short, games }));
-  console.log(`콘솔 목록 저장: ${ids.length}개, 상세 ${need.length}건 갱신, 요청 합계 ${calls}회`);
+  console.log(`콘솔 목록 저장: ${ids.length}개, 상세 ${done}/${need.length}건 갱신, 요청 ${calls}회, 오늘 남은 요청 ${left ?? '?'}회`);
 }
 
 main().catch((e) => {
