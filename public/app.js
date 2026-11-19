@@ -270,13 +270,14 @@ function viewConsole(tab) {
   const relOf = (g) => shorts.map((s) => g.p[s]).filter(Boolean).sort()[0];
   let list = Object.values(CONSOLE.games).filter((g) => g.tab?.includes(tab))
     .filter((g) => !state.q || g.n.toLowerCase().includes(state.q));
-  if (state.scoredOnly) list = list.filter((g) => g.s);
+  const unscored = list.filter((g) => !g.s).length;
+  if (!state.showUnscored) list = list.filter((g) => g.s); // 기본은 평론 점수 있는 게임만
   const key = `c${tab}`;
   const byNew = (a, b) => relOf(b).localeCompare(relOf(a)) || (b.s || 0) - (a.s || 0);
   list.sort(state.sort[key] === 'score' ? (a, b) => (b.s || 0) - (a.s || 0) || byNew(a, b) : byNew);
   const limit = state.limit[key] || PAGE;
   const more = list.length > limit ? `<button class="btn ghost more" type="button" data-more="${key}">${T.more(Math.min(limit, list.length), list.length)}</button>` : '';
-  const chips = `<div class="chips" style="margin-bottom:16px"><button class="chip${state.scoredOnly ? ' on' : ''}" type="button" data-scored>${T.ocScoredOnly}</button></div>`;
+  const chips = `<div class="chips" style="margin-bottom:16px"><label class="check"><input type="checkbox" data-unscored${state.showUnscored ? ' checked' : ''}> <span>${T.ocShowUnscored(unscored)}</span></label></div>`;
   return head(title, T.ocDesc(CONSOLE.days), sortSel(key, [['new', T.sNew], ['score', T.ocSortScore]])) + chips +
     (list.length ? `<div class="grid">${list.slice(0, limit).map((g) => consoleCard(g, tab, relOf(g))).join('')}</div>${more}` : `<p class="empty">${T.empty}</p>`) +
     `<p class="credit">${T.ocCredit}</p>`;
@@ -301,7 +302,7 @@ function route() {
 window.addEventListener('hashchange', route);
 
 main.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-hide],[data-more],[data-cat],[data-disc],[data-scored]');
+  const el = e.target.closest('[data-hide],[data-more],[data-cat],[data-disc],[data-unscored]');
   if (!el) {
     // 카드를 누르면 상세 창 (Ctrl·가운데 클릭은 그대로 스팀 상점으로)
     const c = e.target.closest('[data-open]');
@@ -312,7 +313,7 @@ main.addEventListener('click', (e) => {
   else if (el.dataset.more) state.limit[el.dataset.more] = (state.limit[el.dataset.more] || PAGE) + PAGE * 2;
   else if (el.dataset.cat) { state.cat = Number(el.dataset.cat); state.limit.cat = PAGE; }
   else if (el.dataset.disc) { state.minDisc = Number(el.dataset.disc); state.limit.deal = PAGE; }
-  else if ('scored' in el.dataset) state.scoredOnly = !state.scoredOnly;
+  else if ('unscored' in el.dataset) { state.showUnscored = el.checked; state.limit[`c${state.tab}`] = PAGE; }
   render();
 });
 main.addEventListener('change', (e) => {
